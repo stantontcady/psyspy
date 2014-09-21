@@ -6,9 +6,9 @@ from numpy import empty, append
 from helper_functions import set_initial_conditions, set_parameter_value
 from dgr import DGR
 
-class synchronous_generator(DGR):
+class SynchronousDGR(DGR):
     
-    _synchronous_generator_ids = count(0)
+    _synchronous_dgr_ids = count(0)
     
     def __init__(self,
                  wref=None,
@@ -28,7 +28,7 @@ class synchronous_generator(DGR):
                  
         super(DGR, self).__init__(V0, theta0)
         
-        self.synchronous_generator_id = self._synchronous_generator_ids.next() + 1
+        self._synchronous_dgr_id = self._synchronous_dgr_ids.next() + 1
         
         # TO DO: get reasonable defaults for machine params
         self.parameter_defaults = {
@@ -60,41 +60,36 @@ class synchronous_generator(DGR):
         set_initial_conditions(self, 'E', E0)
     
     def __repr__(self, simple=False, base_indent=0):
-        indent = ''
         indent_level_increment = 2
-        object_description = '%s<Synchronous Distributed Generation Resource #%i>' % (indent.rjust(base_indent),
-                                                                                      self.synchronous_generator_id)
-        E = '%sBack EMF, E: %0.3f' % (indent.rjust(base_indent + 2*indent_level_increment), self.E[-1])
-        d = '%sTorque angle, %s : %0.3f' % (indent.rjust(base_indent + 2*indent_level_increment),
-                                            u'\u03B4'.encode('UTF-8'),
-                                            self.E[-1])
-        w = '%sAngular speed, %s : %0.3f' % (indent.rjust(base_indent + 2*indent_level_increment),
-                                             u'\u03C9'.encode('UTF-8'), self.w[-1])
-        P = '%sPower output, P: %0.3f' % (indent.rjust(base_indent + 2*indent_level_increment), self.P[-1])
-        u = '%sSet-point, u: %0.3f' % (indent.rjust(base_indent + 2*indent_level_increment), self.u[-1])
-
+        
+        object_info = []
+        current_states = []
+        parameters = []
+        
         if simple is False:
-            V = '%sVoltage magnitude, V: %0.3f pu' % (indent.rjust(base_indent + 2*indent_level_increment), self.V[-1])
-            theta = '%sVoltage angle, %s : %0.4f rad' % (indent.rjust(base_indent + 2*indent_level_increment),
-                                                         u'\u03B8'.encode('UTF-8'), self.theta[-1])
-            current_states = '%sCurrent state values:\n%s\n%s\n%s\n%s\n%s\n%s\n%s' % (indent.rjust(base_indent + indent_level_increment),
-                                                                                      V, theta, E, d, w, P, u)
+            current_states.append('Voltage magnitude, V: %0.3f pu' % (self.V[-1]))
+            current_states.append('Voltage angle, %s : %0.4f rad' % (u'\u03B8'.encode('UTF-8'), self.theta[-1]))
             
-            wref = '%sReference frequency, %s_ref: %0.3f' % (indent.rjust(base_indent + 2*indent_level_increment),
-                                                             u'\u03C9'.encode('UTF-8'), self.wref)
-            M = '%sMoment of inertia, M: %0.3f' % (indent.rjust(base_indent + 2*indent_level_increment), self.M)
-            D = '%sDamping coefficient, D: %0.3f' % (indent.rjust(base_indent + 2*indent_level_increment), self.D)
-            taug = '%sGovernor time constant, %s_g: %0.3f' % (indent.rjust(base_indent + 2*indent_level_increment),
-                                                              u'\u03C4'.encode('UTF-8'), self.taug)
-            Rg = '%sDroop coefficient, Rg: %0.3f' % (indent.rjust(base_indent + 2*indent_level_increment), self.Rg)
-            R = '%sGenerator resistance, R: %0.3f' % (indent.rjust(base_indent + 2*indent_level_increment), self.R)
-            X = '%sGenerator reactance, X: %0.3f' % (indent.rjust(base_indent + 2*indent_level_increment), self.X)
-            parameters = '%sParameters:\n%s\n%s\n%s\n%s\n%s\n%s\n%s' % (indent.rjust(base_indent + indent_level_increment),
-                                                                        wref, M, D, taug, Rg, R, X)
+            parameters.append('Reference frequency, %s_ref: %0.3f' % (u'\u03C9'.encode('UTF-8'), self.wref))
+            parameters.append('Moment of inertia, M: %0.3f' % (self.M))
+            parameters.append('Damping coefficient, D: %0.3f' % (self.D))
+            parameters.append('Governor time constant, %s_g: %0.3f' % (u'\u03C4'.encode('UTF-8'), self.taug))
+            parameters.append('Droop coefficient, Rg: %0.3f' % (self.Rg))
+            parameters.append('Generator resistance, R: %0.3f' % (self.R))
+            parameters.append('Generator reactance, X: %0.3f' % (self.X))
             
-            return '%s\n%s\n\n%s' % (object_description, current_states, parameters)
-        else:
-            current_states = '%sCurrent state values:\n%s\n%s\n%s\n%s\n%s' % (indent.rjust(base_indent + indent_level_increment),
-                                                                              E, d, w, P, u)
+        current_states.append('Back EMF, E: %0.3f' % (self.E[-1]))
+        current_states.append('Torque angle, %s : %0.3f' % (u'\u03B4'.encode('UTF-8'), self.E[-1]))
+        current_states.append('Angular speed, %s : %0.3f' % (u'\u03C9'.encode('UTF-8'), self.w[-1]))
+        current_states.append('Power output, P: %0.3f' % (self.P[-1]))
+        current_states.append('Set-point, u: %0.3f' % (self.u[-1]))
+        
+        object_info.append('<Synchronous DGR #%i>' % (self._synchronous_dgr_id))
+        if current_states != []:
+            object_info.append('%sCurrent state values:' % (''.rjust(indent_level_increment)))
+            object_info.extend(['%s%s' % (''.rjust(2*indent_level_increment), state) for state in current_states])
+        if parameters != []:
+            object_info.append('%sParameters:' % (''.rjust(indent_level_increment)))
+            object_info.extend(['%s%s' % (''.rjust(2*indent_level_increment), parameter) for parameter in parameters])
             
-            return '%s\n%s' % (object_description, current_states)
+        return '\n'.join(['%s%s' % ((''.rjust(base_indent), line)) for line in object_info])

@@ -12,4 +12,4 @@ class DGR(Node):
     def __init__(self, V0=None, theta0=None):
         super(Node, self).__init__(V0, theta0)
         
-        self.drg_id = self._dgr_ids.next() + 1
+        self._dgr_id = self._dgr_ids.next() + 1
