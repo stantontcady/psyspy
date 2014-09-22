@@ -17,10 +17,12 @@ class Bus(object):
         self.nodes = []
         
         if nodes is not None:
+            if type(nodes) is not list:
+                nodes = [nodes]
             for node in nodes:
                 self.add_node(node)
             
-    def __repr__(self, base_indent=0):
+    def __repr__(self, simple=False, base_indent=0):
         indent_level_increment = 2
         
         object_info = []
