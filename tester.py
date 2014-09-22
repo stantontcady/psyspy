@@ -1,8 +1,6 @@
-from bus import Bus
-from passive_load import PassiveLoad
-from power_line import PowerLine
-from power_network import PowerNetwork
-from synchronous_dgr import SynchronousDGR
+#!/usr/bin/env python
+
+from model_components import Bus, PassiveLoad, PowerLine, PowerNetwork, SynchronousDGR
 from IPython import embed
 
 g1 = SynchronousDGR()

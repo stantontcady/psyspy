@@ -2,7 +2,7 @@ from itertools import count
 
 from bus import Bus
 from power_line import PowerLine
-from synchronous_dgr import SynchronousDGR
+
 
 class PowerNetwork(object):
     

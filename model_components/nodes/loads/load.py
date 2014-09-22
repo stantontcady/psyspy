@@ -1,5 +1,6 @@
 from itertools import count
-from node import Node
+
+from ..node import Node
 
 
 class Load(Node):

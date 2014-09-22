@@ -2,7 +2,7 @@ from itertools import count
 
 from numpy import empty, append
 
-from helper_functions import set_initial_conditions
+from model_components import set_initial_conditions
 
 
 class Node(object):
@@ -14,6 +14,6 @@ class Node(object):
         set_initial_conditions(self, 'V', V0)
         set_initial_conditions(self, 'theta', theta0)
         
-    def update_states(self, V, theta):
+    def update_node_voltage(self, V, theta):
         self.V = append(self.V, V)
         self.theta = append(self.theta, theta)
