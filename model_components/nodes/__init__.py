@@ -1,7 +1,6 @@
+from bus import Bus
 from node import Node
 
-from loads.load import Load
-from loads.passive_load import PassiveLoad
+from loads import ConstantPowerLoad, Load, PassiveLoad
 
-from sources.dgr import DGR
-from sources.synchronous_dgr import SynchronousDGR
+from sources import DGR, PVDGR, SynchronousDGR
