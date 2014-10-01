@@ -2,28 +2,19 @@ from itertools import count
 
 from numpy import append
 
-from .node import Node
-from model_components import impedance_admittance_wrangler
+from .bus import Bus
 
 
-class Bus(Node):
-    _bus_ids = count(0)
+class PVBus(Bus):
+    _pv_bus_ids = count(0)
     
-    def __init__(self, nodes=None, V0=None, theta0=None, shunt_z=(), shunt_y=()):
+    def __init__(self, P=None, V=None, theta0=None, shunt_z=(), shunt_y=()):
+        Bus.__init__(self, None, V, theta0, shunt_z, shunt_y)
         
-        Node.__init__(self, V0, theta0)
+        self._pv_bus_id = self._pv_bus_ids.next() + 1
         
-        self._bus_id = self._bus_ids.next() + 1
-        
-        self.child_nodes = []
-        
-        if nodes is not None:
-            if type(nodes) is not list:
-                nodes = [nodes]
-            for node in nodes:
-                self.add_child_node(node)
-                
-        self.shunt_y = impedance_admittance_wrangler(shunt_z, shunt_y)
+        set_initial_conditions(self, 'P', P)
+        set_initial_conditions(self, 'Q')
 
             
     def __repr__(self):
@@ -31,7 +22,7 @@ class Bus(Node):
 
 
     def repr_helper(self, simple=False, indent_level_increment=2):
-        object_info = ['<Bus #%i>' % (self._bus_id)]
+        object_info = ['<PV Bus #%i>' % (self._pv_bus_id)]
         
         current_states = []
         V, theta = self.get_current_node_voltage()
@@ -62,27 +53,22 @@ class Bus(Node):
         
 
     def get_id(self):
-        return self._bus_id
+        return self._pv_bus_id
 
-
-    def add_child_node(self, node):
-        if len(node.V) != 1:
-            print 'Resetting node voltage magnitude array.'
-        if node.V[0] != self.V[0]:
-            print 'Overwriting initial voltage magnitude of node %i to match bus.' % (node.get_id())
-    
-        if len(node.theta) != 1:
-            print 'Resetting node voltage angle array.'
-        if node.theta[0] != self.theta[0]:
-            print 'Overwriting initial voltage angle of node %i to match bus.' % (node.get_id())
-            
-        node.set_initial_node_voltage(self.V[0], self.theta[0])
-    
-        self.child_nodes.append(node)
-
-    
-    def update_voltage(self, V, theta):
-        for node in self.child_nodes:
-            node.update_node_voltage(V, theta)
-        self.update_node_voltage(V, theta)
         
+    def update_node_voltage(self, V, theta):
+        print 'using PV-specific func'
+        # special function to update voltage while maintaining voltage magnitude since this is a PV bus
+        self.V = append(self.V, self.V[-1])
+        self.theta = append(self.theta, theta)
+        return self.get_current_node_voltage()
+
+        
+    def update_real_reactive_power(self, P, Q):
+        self.P = append(self.P, self.P[-1])
+        self.Q = append(self.Q, Q)
+        return self.get_current_real_reactive_power()
+
+
+    def get_current_real_reactive_power(self):
+        return array([self.P[-1], self.Q[-1]])

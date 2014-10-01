@@ -25,16 +25,15 @@ class PowerNetwork(object):
         return output
         
     def add_bus(self, bus):
-        self.buses.append(bus)
+        if self.bus_in_network(bus) is False:
+            self.buses.append(bus)
     
     def add_power_line(self, power_line):
         self.power_lines.append(power_line)
         
     def connect_buses(self, bus_a, bus_b, z=(), y=()):
-        if self.bus_in_network(bus_a) is False:
-            self.add_bus(bus_a)
-        if self.bus_in_network(bus_b) is False:
-            self.add_bus(bus_b)
+        self.add_bus(bus_a)
+        self.add_bus(bus_b)
         
         power_line = PowerLine(bus_a, bus_b, z, y)
         self.add_power_line(power_line)
@@ -116,27 +115,7 @@ class PowerNetwork(object):
                 power_line_ids.append(power_line.get_id())
         return power_line_ids, connected_bus_ids
     
-            
-    # def generate_admittance_matrix(self):
-    #     ordered_bus_ids = self.get_bus_ids_ordered_by_incidence_count()
-    #     n = len(ordered_bus_ids)
-    #     G = zeros([n,n], dtype=float)
-    #     B = zeros([n,n], dtype=float)
-    #     i = 0
-    #     for bus_id in ordered_bus_ids:
-    #         j = 0
-    #         for incident_power_line in self.get_incident_power_line_ids(bus_id):
-    #             (gj, bj) = self.get_power_line_by_id().y
-    #             G[i, i] += gj
-    #             B[i, i] += bj
-    #             G[i, j] = -gj
-    #             B[i, j] = -bj
-    #         (gi, bi) = get_bus_by_id(bus_id).shunt_y
-    #         G[i, i] += gi
-    #         B[i, i] += bi
-    #         i += 1
-    #
-    #     return lil_matrix(G), lil_matrix(B)
+
     def generate_admittance_matrix(self):
         n = len(self.buses)
         G = zeros([n,n], dtype=float)

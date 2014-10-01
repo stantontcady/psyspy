@@ -12,7 +12,7 @@ class SynchronousDGR(DGR):
     
     def __init__(self, V0=None, theta0=None, model='classical'):
                  
-        super(DGR, self).__init__(V0, theta0)
+        DGR.__init__(self, V0, theta0)
         
         self._synchronous_dgr_id = self._synchronous_dgr_ids.next() + 1
         if model == 'classical':

@@ -7,7 +7,7 @@ class PassiveLoad(Load):
     _passive_load_ids = count(0)
 
     def __init__(self, R=None, L=None, C=None, V0=None, theta0=None):
-        super(Load, self).__init__(V0, theta0)
+        Load.__init__(self, V0, theta0)
         
         self._passive_load_id = self._passive_load_ids.next() + 1
         

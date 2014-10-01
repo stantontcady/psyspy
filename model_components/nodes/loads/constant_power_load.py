@@ -7,7 +7,7 @@ class ConstantPowerLoad(Load):
     _constant_power_load_ids = count(0)
 
     def __init__(self, P=None, Q=None, V0=None, theta0=None):
-        super(Load, self).__init__(V0, theta0)
+        Load.__init__(self, V0, theta0)
         
         self._constant_power_load_id = self._constant_power_load_ids.next() + 1
         
