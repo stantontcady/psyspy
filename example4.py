@@ -6,11 +6,11 @@ from IPython import embed
 
 b1 = PVBus(P=1.02, V=1, theta0=0)
 b2 = PVBus(P=1, V=1.04, theta0=0.2)
-b3 = Bus()
-b4 = Bus()
-b5 = Bus()
-b6 = Bus()
-b7 = Bus()
+b3 = Bus(V0=1, theta0=0.1)
+b4 = Bus(V0=1, theta0=0.1)
+b5 = Bus(V0=1, theta0=0.1)
+b6 = Bus(V0=1, theta0=0.1)
+b7 = Bus(V0=1, theta0=0.1)
 
 n = PowerNetwork(buses=[b1, b2, b3, b4, b5, b6, b7])
 

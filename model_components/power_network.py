@@ -2,7 +2,7 @@ from itertools import count
 from operator import itemgetter
 from math import sin, cos
 
-from numpy import append, array, zeros, frompyfunc, hstack, diagflat
+from numpy import append, array, zeros, frompyfunc, hstack, diagflat, set_printoptions
 from scipy.sparse import lil_matrix
 
 from power_line import PowerLine
@@ -16,6 +16,7 @@ class PowerNetwork(object):
         self.buses.extend(buses)
         self.power_lines = []
         self.power_lines.extend(power_lines)
+        set_printoptions(linewidth=175)
 
         
     def __repr__(self):
@@ -219,27 +220,6 @@ class PowerNetwork(object):
         self.slack_bus_id = slack_bus_id
         return slack_bus_id
         
-
-    # def save_admittance_matrix_bus_id_index_mapping(self, bus_admittance_matrix_id_index_mapping=None):
-    #     if bus_admittance_matrix_id_index_mapping is None:
-    #         try:
-    #             if bus_admittance_matrix_id_index_mapping != self.bus_admittance_matrix_id_index_mapping:
-    #                 bus_admittance_matrix_id_index_mapping = self.generate_admittance_matrix_bus_id_index_mapping()
-    #         except AttributeError:
-    #             bus_admittance_matrix_id_index_mapping = self.generate_admittance_matrix_bus_id_index_mapping()
-    #
-    #     self.bus_admittance_matrix_id_index_mapping = bus_admittance_matrix_id_index_mapping
-    #     return self.bus_admittance_matrix_id_index_mapping
-    #
-    #
-    # def get_bus_from_admittance_matrix_index_bus_id_mapping(self, index):
-    #     try:
-    #         bus_admittance_matrix_id_index_mapping = self.bus_admittance_matrix_id_index_mapping
-    #     except AttributeError:
-    #         bus_admittance_matrix_id_index_mapping = self.save_admittance_matrix_bus_id_index_mapping()
-    #
-    #     return self.get_bus_by_id(bus_admittance_matrix_id_index_mapping[index])
-        
         
     def get_admittance_matrix_index_from_bus_id(self, bus_id_to_find):
         try:
@@ -248,7 +228,7 @@ class PowerNetwork(object):
             _, _, admittance_matrix_index_bus_id_mapping = self.generate_admittance_matrix()
 
         try:
-            index_of_bus_id = bus_ids.index(bus_id_to_find)
+            index_of_bus_id = admittance_matrix_index_bus_id_mapping.index(bus_id_to_find)
         except ValueError:
             index_of_bus_id = None
         
@@ -313,14 +293,19 @@ class PowerNetwork(object):
                 else:
                     bus_id_j = jacobian_matrix_index_bus_id_mapping[j]
                     if bus_id_j in connected_bus_ids:
+                        Gij, Bij = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_j)
                         bus_j = self.get_bus_by_id(bus_id_j)
-                        J[i, j] = self._jacobian_hij_helper(bus_id_i, bus_id_j)
+                        Vj_polar = bus_j.get_current_node_voltage()
+                        J[i, j] = self._jacobian_hij_helper(Vi_polar, Vj_polar, Gij, Bij)
                         if bus_i_has_generator is False:
-                            J[i+1, j] = self._jacobian_kij_helper(bus_id_i, bus_id_j)
+                            J[i+1, j] = self._jacobian_kij_helper(Vi_polar, Vj_polar, Gij, Bij)
                         if bus_j.has_generator_attached() is False:
-                            J[i, j+1] = self._jacobian_nij_helper(bus_id_i, bus_id_j)
                             if bus_i_has_generator is False:
-                                J[i+1, j+1] = self._jacobian_lij_helper(bus_id_i, bus_id_j)
+                                J[i+1, j+1] = self._jacobian_lij_helper(Vi_polar, Vj_polar, Gij, Bij, J[i, j])
+                                Kij = J[i+1, j]
+                            else:
+                                Kij = None
+                            J[i, j+1] = self._jacobian_nij_helper(Vi_polar, Vj_polar, Gij, Bij, Kij)
                             j += 1
                 j += 1
                     
@@ -351,11 +336,13 @@ class PowerNetwork(object):
         return diag_elements, jacobian_indices
         
             
-    def _jacobian_hij_helper(self, i, j): #  Vi_polar, Vj_polar, Gij, Bij
-        # Vi, thetai = Vi_polar
-#         Vj, thetaj = Vj_polar
-#         return Vi*Vj*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
-        # return 'H%i%i' % (i-1, j-1)
+    def _jacobian_hij_helper(self, Vi_polar, Vj_polar, Gij, Bij, Lij=None):
+        Vj, thetaj = Vj_polar
+        if Lij is not None:
+            return Lij*Vj
+        else:
+            Vi, thetai = Vi_polar
+            return Vi*Vj*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
 
         
     def _jacobian_hii_helper(self, i, Vi_polar, connected_bus_ids):
@@ -368,28 +355,36 @@ class PowerNetwork(object):
         #     Hii += Vk*Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak)
         
         # return -1*Vi*Hii
-        return 'H%i%i' % (i-1, i-1)
+        return 0
+        # return 'H%i%i' % (i-1, i-1)
 
 
-    def _jacobian_nij_helper(self, i, j): #, Vi_polar, Vj_polar, Gij, Bij
-        # Vi, thetai = Vi_polar
-        # _, thetaj = Vj_polar
-        # return Vi*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
-        return 'N%i%i' % (i-1, j-1)
+    def _jacobian_nij_helper(self, Vi_polar, Vj_polar, Gij, Bij, Kij=None):
+        Vj, thetaj = Vj_polar
+        if Kij is not None:
+            return -1*Kij/Vj
+        else:
+            Vi, thetai = Vi_polar
+            return Vi*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
         
         
     def _jacobian_nii_helper(self, i): # , Vi_polar, connected_bus_ids
-        return 'N%i%i' % (i-1, i-1)
+        # return 'N%i%i' % (i-1, i-1)
+        return 0
         
 
-    def _jacobian_kij_helper(self, i, j): #Vi_polar, Vj_polar, Gij, Bij):
-        # Vj, _ = Vj_polar
-        # return -1*Vj*self._jacobian_nij_helper(Vi_polar, Vj_polar, Gij, Bij)
-        return 'K%i%i' % (i-1, j-1)
+    def _jacobian_kij_helper(self, Vi_polar, Vj_polar, Gij, Bij, Nij=None):
+        Vj, thetaj = Vj_polar
+        if Nij is not None:
+            return -1*Nij*Vj
+        else:
+            Vi, thetai = Vi_polar
+            return -1*Vi*Vj*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
         
     
     def _jacobian_kii_helper(self, i): # , Vi_polar, connected_bus_ids
-        return 'K%i%i' % (i-1, i-1)
+        return 0
+        # return 'K%i%i' % (i-1, i-1)
         # Kii = 0
         # Vi, thetai = Vi_polar
         # for k in connected_bus_ids:
@@ -399,20 +394,24 @@ class PowerNetwork(object):
         # return -1*Vi*Hii
         
     
-    def _jacobian_lij_helper(self, i, j): # Vi_polar, Vj_polar, Gij, Bij):
-        # Vj, _ = Vj_polar
-        # return self._jacobian_hij_helper(Vi_polar, Vj_polar, Gij, Bij)/Vj
-        return 'L%i%i' % (i-1, j-1)
+    def _jacobian_lij_helper(self, Vi_polar, Vj_polar, Gij, Bij, Hij=None):
+        Vj, thetaj = Vj_polar
+        if Hij is not None:
+            return Hij/Vj
+        else:
+            Vi, thetai = Vi_polar
+            return Vi*(Gij*sin(thetai - thetaj) + bij*cos(thetai - thetaj))
         
     
     def _jacobian_lii_helper(self, i, Vi_polar, Hii):
+        return 0
         # _, Bii = self.get_admittance_value_from_bus_ids(i, i)
         # Vi, _ = Vi_polar
         #
         # Qneti = Bii*Vi**2 - Hii
         
         # return Bii*Vi + Qneti/Vi
-        return 'L%i%i' % (i-1, i-1)
+        # return 'L%i%i' % (i-1, i-1)
         
         
         # Lii = 2*Bii*Vi
