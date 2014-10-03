@@ -10,3 +10,6 @@ class DGR(Node):
         Node.__init__(self, V0, theta0)
         
         self._dgr_id = self._dgr_ids.next() + 1
+        
+        self._node_type = 'DGR'
+

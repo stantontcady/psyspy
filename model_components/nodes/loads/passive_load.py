@@ -23,6 +23,8 @@ class PassiveLoad(Load):
             C = 0
         self.C = C
         
+        self._node_type = 'PassiveLoad'
+        
     def __repr__(self):
         return '\n'.join([line for line in self.repr_helper()])
         

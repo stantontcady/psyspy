@@ -15,6 +15,8 @@ class Bus(Node):
         
         self._bus_id = self._bus_ids.next() + 1
         
+        self._bus_type = 'Bus'
+        
         self.child_nodes = []
         
         if nodes is not None:
@@ -31,7 +33,7 @@ class Bus(Node):
 
 
     def repr_helper(self, simple=False, indent_level_increment=2):
-        object_info = ['<Bus #%i>' % (self._bus_id)]
+        object_info = ['<Bus, Node #%i>' % (self.get_id())]
         
         current_states = []
         V, theta = self.get_current_node_voltage()
@@ -61,7 +63,11 @@ class Bus(Node):
         return object_info
         
 
-    def get_id(self):
+    def get_type(self):
+        return self._bus_type
+
+
+    def get_bus_id(self):
         return self._bus_id
 
 
@@ -85,4 +91,15 @@ class Bus(Node):
         for node in self.child_nodes:
             node.update_node_voltage(V, theta)
         self.update_node_voltage(V, theta)
+        
+
+    def has_generator_attached(self):
+        if self.get_node_type() == 'PVBus':
+            return True
+        for node in self.child_nodes:
+            node_type = node.get_node_type()
+            if node_type == 'DGR' or node_type == 'SynchronousDGR':
+                return True
+        return False
+
         

@@ -11,7 +11,9 @@ class Node(object):
     def __init__(self, V0=None, theta0=None):
         self._node_id = self._node_ids.next() + 1
         
-        self.set_initial_node_voltage(V0, theta0)
+        _,_ = self.set_initial_node_voltage(V0, theta0)
+        
+        self._node_type = 'Node'
         
         
     def __repr__(self):
@@ -46,8 +48,11 @@ class Node(object):
         
         
     def get_current_node_voltage(self):
-        return array([self.V[-1], self.theta[-1]])
+        return self.V[-1], self.theta[-1]
 
         
     def get_id(self):
         return self._node_id
+        
+    def get_node_type(self):
+        return self._node_type

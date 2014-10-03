@@ -3,6 +3,7 @@ from itertools import count
 from numpy import append
 
 from .bus import Bus
+from model_components import set_initial_conditions
 
 
 class PVBus(Bus):
@@ -15,6 +16,8 @@ class PVBus(Bus):
         
         set_initial_conditions(self, 'P', P)
         set_initial_conditions(self, 'Q')
+        
+        self._node_type = 'PVBus'
 
             
     def __repr__(self):
@@ -22,7 +25,7 @@ class PVBus(Bus):
 
 
     def repr_helper(self, simple=False, indent_level_increment=2):
-        object_info = ['<PV Bus #%i>' % (self._pv_bus_id)]
+        object_info = ['<PV Bus, Node #%i>' % (self.get_id())]
         
         current_states = []
         V, theta = self.get_current_node_voltage()
@@ -50,9 +53,9 @@ class PVBus(Bus):
                                 for line in node.repr_helper(simple=True, indent_level_increment=indent_level_increment)])
         
         return object_info
-        
 
-    def get_id(self):
+
+    def get_pv_bus_id(self):
         return self._pv_bus_id
 
         
@@ -71,4 +74,4 @@ class PVBus(Bus):
 
 
     def get_current_real_reactive_power(self):
-        return array([self.P[-1], self.Q[-1]])
+        return self.P[-1], self.Q[-1]

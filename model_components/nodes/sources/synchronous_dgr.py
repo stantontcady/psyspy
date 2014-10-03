@@ -18,6 +18,9 @@ class SynchronousDGR(DGR):
         if model == 'classical':
             self.generator_model = ClassicalModel()
             
+        self._node_type = 'SynchronousDGR'
+
+            
     def __repr__(self):
         return '\n'.join([line for line in self.repr_helper()])
 
@@ -35,28 +38,35 @@ class SynchronousDGR(DGR):
                             for line in self.generator_model.repr_helper(simple=simple,
                                                                          indent_level_increment=indent_level_increment)])
         return object_info
-            
+
 
     def get_generator_model_parameters(self):
         return self.generator_model.get_model_parameters()
-    
+
+
     def set_generator_model_parameters(self, parameter_dict):
         return self.generator_model.set_model_parameters(parameter_dict)
-        
+
+
     def initialize_states(self, initial_values):
         return self.generator_model.initialize_states(initial_values)
-    
+
+
     def get_generator_incremental_states(self, Pout, states=None, set_points=None):
         return self.generator_model.get_incremental_states(Pout, states, set_points)
-    
+
+
     def get_current_generator_states(self):
         return self.generator_model.get_current_states()
-        
+
+
     def update_generator_states(self, states):
         return self.generator_model.update_states(states)
+
         
     def get_generator_states_as_tuple(self):
         return self.generator_model.get_states_as_tuple()
+
         
     def get_current_generator_set_points(self):
         return self.generator_model
