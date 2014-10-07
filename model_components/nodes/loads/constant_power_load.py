@@ -18,6 +18,8 @@ class ConstantPowerLoad(Load):
         if Q is None:
             Q = 0
         self.Q = Q
+        
+        self._node_type = 'ConstantPowerLoad'
 
         
     def __repr__(self):

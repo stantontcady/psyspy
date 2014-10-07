@@ -2,8 +2,10 @@ from itertools import count
 from operator import itemgetter
 from math import sin, cos
 
-from numpy import append, array, zeros, frompyfunc, hstack, diagflat, set_printoptions
-from scipy.sparse import lil_matrix
+from numpy import append, array, zeros, frompyfunc, hstack, set_printoptions, inf
+from numpy.linalg import norm
+from scipy.sparse import lil_matrix, csr_matrix, diags
+from scipy.sparse.linalg import spsolve
 
 from power_line import PowerLine
 
@@ -198,6 +200,16 @@ class PowerNetwork(object):
             
         return G, B
         
+    
+    def get_admittance_matrix_bus_id_index_mapping(self):
+        try:
+            mapping = self.admittance_matrix_index_bus_id_mapping
+        except AttributeError:
+            _, _ = self.get_admittance_matrix()
+        mapping = self.admittance_matrix_index_bus_id_mapping
+        
+        return mapping
+        
         
     def is_slack_bus(self, bus):
         try:
@@ -210,22 +222,27 @@ class PowerNetwork(object):
 
     
     def select_slack_bus(self):
-        slack_bus_id = None
-        for bus in self.buses:
-            bus_id = bus.get_id()
-            if bus.has_generator_attached() is True and slack_bus_id is None:
-                slack_bus_id = bus_id
-                break
+        try:
+            slack_bus_id = self.slack_bus_id
+        except AttributeError:            
+            slack_bus_id = None
+            for bus in self.buses:
+                bus_id = bus.get_id()
+                if bus.has_generator_attached() is True and slack_bus_id is None:
+                    slack_bus_id = bus_id
+                    break
 
-        self.slack_bus_id = slack_bus_id
+            self.slack_bus_id = slack_bus_id
         return slack_bus_id
+        
+    
+    def set_slack_bus(self, bus):
+        self.slack_bus_id = bus.get_id()
+        return self.slack_bus_id
         
         
     def get_admittance_matrix_index_from_bus_id(self, bus_id_to_find):
-        try:
-            admittance_matrix_index_bus_id_mapping = self.admittance_matrix_index_bus_id_mapping
-        except AttributeError:
-            _, _, admittance_matrix_index_bus_id_mapping = self.generate_admittance_matrix()
+        admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_bus_id_index_mapping()
 
         try:
             index_of_bus_id = admittance_matrix_index_bus_id_mapping.index(bus_id_to_find)
@@ -237,29 +254,88 @@ class PowerNetwork(object):
         
     def get_admittance_value_from_bus_ids(self, bus_id_i, bus_id_j):
         i = self.get_admittance_matrix_index_from_bus_id(bus_id_i)
-        j = self.get_admittance_matrix_index_from_bus_id(bus_id_j)
+        if bus_id_i != bus_id_j:
+            j = self.get_admittance_matrix_index_from_bus_id(bus_id_j)
+        else:
+            j = i
         if i is None or j is None:
             return None
 
         G, B = self.get_admittance_matrix()
-        
+
         return G[i, j], B[i, j]
         
         
     def get_current_voltage_vector(self):
         self.select_slack_bus()
-        self.save_admittance_matrix_bus_id_index_mapping()
-        state_vector = array([])
-        for bus_id in self.bus_admittance_matrix_id_index_mapping:
+        voltage_vector = array([])
+        for bus_id in self.get_admittance_matrix_bus_id_index_mapping():
             bus = self.get_bus_by_id(bus_id)
             if self.is_slack_bus(bus) is True:
                 continue
             V, theta = bus.get_current_node_voltage()
-            state_vector = append(state_vector, [theta])
-            if bus.has_generator_attached() is True:
-                state_vector = append(state_vector, [V])
+            voltage_vector = append(voltage_vector, [theta])
+            if bus.has_generator_attached() is False:
+                voltage_vector = append(voltage_vector, [V])
 
-        return state_vector
+        return voltage_vector
+        
+    
+    def update_voltage_vector(self, new_voltage_vector):
+        i = 0
+        for bus_id in self.get_admittance_matrix_bus_id_index_mapping():
+            bus = self.get_bus_by_id(bus_id)
+            if self.is_slack_bus(bus) is True:
+                continue
+            if bus.has_generator_attached() is False:
+                _, _ = bus.update_node_voltage(new_voltage_vector[i+1], new_voltage_vector[i])
+                i += 1
+            else:
+                _ = bus.update_node_voltage_angle(new_voltage_vector[i])
+            
+            i += 1
+
+            
+    def generate_function_vector(self):
+        function_vector = array([])
+        admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_bus_id_index_mapping()
+        for bus_id in admittance_matrix_index_bus_id_mapping:
+            bus = self.get_bus_by_id(bus_id)
+            if self.is_slack_bus(bus) is True:
+                continue
+            fp, fq = self._fp_fq_helper(bus)
+            function_vector = append(function_vector, fp)
+            if bus.has_generator_attached() is False:
+                function_vector = append(function_vector, fq)
+        
+        return function_vector
+        
+            
+    def _fp_fq_helper(self, bus):
+        bus_id_i = bus.get_id()
+        Vi, thetai = bus.get_current_node_voltage()
+        Gii, Bii = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
+        Pnet, Qnet = bus.get_specified_real_reactive_power()
+        
+        fp = Gii*Vi
+        fq = 0
+        if bus.has_generator_attached() is False:
+            fq = Bii*Vi
+        for bus_id_k in self.get_all_connected_bus_ids_by_id(bus_id_i):
+            bus_k = self.get_bus_by_id(bus_id_k)
+            Vk, thetak = bus_k.get_current_node_voltage()
+            Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
+            fp += Vk*(Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak))
+            if bus.has_generator_attached() is False:
+                fq += Vk*(Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak))
+            
+        fp *= Vi
+        fp -= Pnet
+        if bus.has_generator_attached() is False:
+            fq *= Vi
+            fq -= Qnet
+        
+        return fp, fq
                 
     
     def generate_jacobian_matrix(self):
@@ -270,8 +346,7 @@ class PowerNetwork(object):
         slack_bus_id = self.select_slack_bus()
         
         J, list_of_bus_id_lists = frompyfunc(self._jacobian_diagonal_helper, 1, 2)(admittance_matrix_index_bus_id_mapping)
-        
-        J = diagflat(hstack(J))
+        J = diags(hstack(J), 0, format='lil')
         # J is square, okay to take either element of shape
         n = J.shape[0]
         jacobian_matrix_index_bus_id_mapping = [int(bus_id) for bus_id in hstack(list_of_bus_id_lists).tolist() if bus_id is not None]
@@ -279,16 +354,16 @@ class PowerNetwork(object):
         i = 0
         while i < n:
             bus_id_i = jacobian_matrix_index_bus_id_mapping[i]
-            connected_bus_ids = self.get_all_connected_bus_ids_by_id(bus_id_i)
             bus_i = self.get_bus_by_id(bus_id_i)
+            connected_bus_ids = self.get_all_connected_bus_ids_by_id(bus_id_i)
             Vi_polar = bus_i.get_current_node_voltage()
             bus_i_has_generator = bus_i.has_generator_attached()
             j = 0
             while j < n:
                 if i == j:
                     if bus_i_has_generator is False:
-                        J[i+1, j] = self._jacobian_kii_helper(bus_id_i)
-                        J[i, j+1] = self._jacobian_nii_helper(bus_id_i)
+                        J[i+1, j] = self._jacobian_kii_helper(bus_id_i, Vi_polar, connected_bus_ids)
+                        J[i, j+1] = self._jacobian_nii_helper(bus_id_i, Vi_polar, connected_bus_ids, Kii=J[i+1, j])
                         j += 1
                 else:
                     bus_id_j = jacobian_matrix_index_bus_id_mapping[j]
@@ -296,9 +371,12 @@ class PowerNetwork(object):
                         Gij, Bij = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_j)
                         bus_j = self.get_bus_by_id(bus_id_j)
                         Vj_polar = bus_j.get_current_node_voltage()
+
                         J[i, j] = self._jacobian_hij_helper(Vi_polar, Vj_polar, Gij, Bij)
+
                         if bus_i_has_generator is False:
                             J[i+1, j] = self._jacobian_kij_helper(Vi_polar, Vj_polar, Gij, Bij)
+
                         if bus_j.has_generator_attached() is False:
                             if bus_i_has_generator is False:
                                 J[i+1, j+1] = self._jacobian_lij_helper(Vi_polar, Vj_polar, Gij, Bij, J[i, j])
@@ -330,7 +408,7 @@ class PowerNetwork(object):
         jacobian_indices = [bus_id]
 
         if bus.has_generator_attached() is False:
-            diag_elements.append(self._jacobian_lii_helper(bus_id, Vi_polar, Hii))
+            diag_elements.append(self._jacobian_lii_helper(bus_id, Vi_polar, connected_bus_ids, Hii))
             jacobian_indices.append(bus_id)
             
         return diag_elements, jacobian_indices
@@ -345,18 +423,21 @@ class PowerNetwork(object):
             return Vi*Vj*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
 
         
-    def _jacobian_hii_helper(self, i, Vi_polar, connected_bus_ids):
-        # Hii = 0
-        # Vi, thetai = Vi_polar
-        # for k in connected_bus_ids:
-        #     bus_k = self.get_bus_by_id(k)
-        #     Vk, thetak = bus_k.get_current_node_voltage()
-        #     Gik, Bik = self.get_admittance_value_from_bus_ids(i, bus_k.get_id())
-        #     Hii += Vk*Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak)
-        
-        # return -1*Vi*Hii
-        return 0
-        # return 'H%i%i' % (i-1, i-1)
+    def _jacobian_hii_helper(self, bus_id_i, Vi_polar, connected_bus_ids, Lii=None):
+        Vi, thetai = Vi_polar
+        if Lii is not None:
+            _, Bii = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
+            Qneti = self._get_qneti(Bii, Vi, Lii=Lii)
+            return Bii*Vi**2 - Qneti
+        else:
+            Hii = 0
+            for bus_id_k in connected_bus_ids:
+                bus_k = self.get_bus_by_id(bus_id_k)
+                Vk, thetak = bus_k.get_current_node_voltage()
+                Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
+                Hii += Vk*Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak)
+
+            return -1*Vi*Hii
 
 
     def _jacobian_nij_helper(self, Vi_polar, Vj_polar, Gij, Bij, Kij=None):
@@ -368,9 +449,20 @@ class PowerNetwork(object):
             return Vi*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
         
         
-    def _jacobian_nii_helper(self, i): # , Vi_polar, connected_bus_ids
-        # return 'N%i%i' % (i-1, i-1)
-        return 0
+    def _jacobian_nii_helper(self, bus_id_i, Vi_polar, connected_bus_ids, Kii=None):
+        Vi, thetai = Vi_polar
+        Gii, _ = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
+        if Kii is not None:
+            Pneti = self._get_pneti(Gii, Vi, Kii=Kii)
+            return Gii*Vi + Pneti/Vi
+        else:
+            Nii = 2*Gii*Vi
+            for bus_id_k in connected_bus_ids:
+                bus_k = self.get_bus_by_id(bus_id_k)
+                Vk, thetak = bus_k.get_current_node_voltage()
+                Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
+                Nii += Vk*Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak)
+            return Nii
         
 
     def _jacobian_kij_helper(self, Vi_polar, Vj_polar, Gij, Bij, Nij=None):
@@ -382,16 +474,20 @@ class PowerNetwork(object):
             return -1*Vi*Vj*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
         
     
-    def _jacobian_kii_helper(self, i): # , Vi_polar, connected_bus_ids
-        return 0
-        # return 'K%i%i' % (i-1, i-1)
-        # Kii = 0
-        # Vi, thetai = Vi_polar
-        # for k in connected_bus_ids:
-        #     bus_k = self.get_bus_by_id(k)
-        #     Vk, thetak = bus_k.get_current_node_voltage()
-        #     # Hii += Vk*G[]*sin(thetai - thetak) + B[]*cos(thetai - thetak)
-        # return -1*Vi*Hii
+    def _jacobian_kii_helper(self, bus_id_i, Vi_polar, connected_bus_ids, Nii=None):
+        Vi, thetai = Vi_polar
+        if Nii is not None:
+            Gii, _ = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
+            Pneti = self._get_pneti(Gii, Vi, Nii=Nii)
+            return -1*Gii*Vi**2 + Pneti
+        else:
+            Kii = 0
+            for bus_id_k in connected_bus_ids:
+                bus_k = self.get_bus_by_id(bus_id_k)
+                Vk, thetak = bus_k.get_current_node_voltage()
+                Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
+                Kii += Vk*Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak)
+            return Vi*Kii
         
     
     def _jacobian_lij_helper(self, Vi_polar, Vj_polar, Gij, Bij, Hij=None):
@@ -400,26 +496,54 @@ class PowerNetwork(object):
             return Hij/Vj
         else:
             Vi, thetai = Vi_polar
-            return Vi*(Gij*sin(thetai - thetaj) + bij*cos(thetai - thetaj))
+            return Vi*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
         
     
-    def _jacobian_lii_helper(self, i, Vi_polar, Hii):
-        return 0
-        # _, Bii = self.get_admittance_value_from_bus_ids(i, i)
-        # Vi, _ = Vi_polar
-        #
-        # Qneti = Bii*Vi**2 - Hii
-        
-        # return Bii*Vi + Qneti/Vi
-        # return 'L%i%i' % (i-1, i-1)
-        
-        
-        # Lii = 2*Bii*Vi
-        #
-        # for k in connected_bus_ids:
-        #     bus_k = self.get_bus_by_id(k)
-        #     Vk, thetak = bus_k.get_current_node_voltage()
-        #     Gik, Bik = self.get_admittance_value_from_bus_ids(i, bus_k.get_id())
-        #     Lii += Vk*Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak)
-        # return -1*Vi*Hii
+    def _jacobian_lii_helper(self, bus_id_i, Vi_polar, connected_bus_ids, Hii=None):
+        _, Bii = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
+        Vi, thetai = Vi_polar
+        if Hii is not None:
+            Qneti = self._get_qneti(Bii, Vi, Hii=Hii)
+            return Bii*Vi + Qneti/Vi
+        else:        
+            Lii = 2*Bii*Vi
+
+            for bus_id_k in connected_bus_ids:
+                bus_k = self.get_bus_by_id(bus_id_k)
+                Vk, thetak = bus_k.get_current_node_voltage()
+                Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
+                Lii += Vk*Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak)
+            return Lii
     
+    # @staticmethod
+    def _get_pneti(self, Gii, Vi, Nii=None, Kii=None):
+        if Nii is not None:
+            return Vi*(Nii-Gii*Vi)
+        elif Kii is not None:
+            return Gii*Vi**2 + Kii
+        return None
+
+    
+    # @staticmethod
+    def _get_qneti(self, Bii, Vi, Hii=None, Lii=None):
+        if Hii is not None:
+            return Bii*Vi**2 - Hii
+        elif Lii is not None:
+            return Vi*(Lii - Bii*Vi)
+        return None
+        
+
+    def nr(self, tolerance=0.001):
+        b = self.generate_function_vector()
+        while True:
+            A = csr_matrix(self.generate_jacobian_matrix())
+            h = spsolve(A, b)
+            x = self.get_current_voltage_vector()
+            x_next = -h + x
+            self.update_voltage_vector(x_next)
+            b = self.generate_function_vector()
+            error = norm(b, inf)
+            print error
+            if error < tolerance:
+                break
+        return x_next

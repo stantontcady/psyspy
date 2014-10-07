@@ -11,7 +11,12 @@ class Node(object):
     def __init__(self, V0=None, theta0=None):
         self._node_id = self._node_ids.next() + 1
         
-        _,_ = self.set_initial_node_voltage(V0, theta0)
+        if V0 is None:
+            V0 = 1
+        if theta0 is None:
+            theta0 = 0
+
+        _, _ = self.set_initial_node_voltage(V0, theta0)
         
         self._node_type = 'Node'
         
@@ -45,7 +50,17 @@ class Node(object):
         self.V = append(self.V, V)
         self.theta = append(self.theta, theta)
         return self.get_current_node_voltage()
+
         
+    def update_node_voltage_magnitude(self, V):
+        V, _ = self.update_node_voltage(V, self.theta[-1])
+        return V
+        
+
+    def update_node_voltage_angle(self, theta):
+        _, theta = self.update_node_voltage(self.V[-1], theta)
+        return theta
+    
         
     def get_current_node_voltage(self):
         return self.V[-1], self.theta[-1]

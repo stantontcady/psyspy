@@ -9,13 +9,13 @@ from model_components import set_initial_conditions
 class PVBus(Bus):
     _pv_bus_ids = count(0)
     
-    def __init__(self, P=None, V=None, theta0=None, shunt_z=(), shunt_y=()):
+    def __init__(self, P=None, Q=None, V=None, theta0=None, shunt_z=(), shunt_y=()):
         Bus.__init__(self, None, V, theta0, shunt_z, shunt_y)
         
         self._pv_bus_id = self._pv_bus_ids.next() + 1
         
         set_initial_conditions(self, 'P', P)
-        set_initial_conditions(self, 'Q')
+        set_initial_conditions(self, 'Q', Q)
         
         self._node_type = 'PVBus'
 
@@ -60,7 +60,6 @@ class PVBus(Bus):
 
         
     def update_node_voltage(self, V, theta):
-        print 'using PV-specific func'
         # special function to update voltage while maintaining voltage magnitude since this is a PV bus
         self.V = append(self.V, self.V[-1])
         self.theta = append(self.theta, theta)
