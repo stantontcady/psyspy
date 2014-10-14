@@ -2,15 +2,13 @@ from itertools import count
 from operator import itemgetter
 from math import sin, cos
 
-from numpy import append, array, zeros, frompyfunc, hstack, set_printoptions, inf, diag, dot
+from numpy import append, array, zeros, frompyfunc, hstack, set_printoptions, inf
 from numpy.linalg import norm
-from scipy.linalg import solve, inv
 from scipy.sparse import lil_matrix, csr_matrix, diags
 from scipy.sparse.linalg import spsolve
 
 from power_line import PowerLine
 
-from IPython import embed
 
 class PowerNetwork(object):
     
@@ -473,14 +471,6 @@ class PowerNetwork(object):
                 Hii += Vk*(Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak))
 
             return -1*Vi*Hii
-            # Hii = 0
-            # for bus_id_k in connected_bus_ids:
-            #     bus_k = self.get_bus_by_id(bus_id_k)
-            #     Vk, thetak = bus_k.get_current_node_voltage()
-            #     Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
-            #     Hii += Vk*Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak)
-            #
-            # return -1*Vi*Hii
 
 
     def _jacobian_nij_helper(self, Vi_polar, Vj_polar, Gij, Bij, Kij=None):
@@ -506,13 +496,6 @@ class PowerNetwork(object):
                 Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
                 Nii += Vk*(Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak))
             return Nii
-            # Nii = 2*Gii*Vi
-            # for bus_id_k in connected_bus_ids:
-            #     bus_k = self.get_bus_by_id(bus_id_k)
-            #     Vk, thetak = bus_k.get_current_node_voltage()
-            #     Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
-            #     Nii += Vk*Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak)
-            # return Nii
         
 
     def _jacobian_kij_helper(self, Vi_polar, Vj_polar, Gij, Bij, Nij=None):
@@ -538,13 +521,6 @@ class PowerNetwork(object):
                 Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
                 Kii += Vk*(Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak))
             return Vi*Kii
-            # Kii = 0
-            # for bus_id_k in connected_bus_ids:
-            #     bus_k = self.get_bus_by_id(bus_id_k)
-            #     Vk, thetak = bus_k.get_current_node_voltage()
-            #     Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
-            #     Kii += Vk*Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak)
-            # return Vi*Kii
         
     
     def _jacobian_lij_helper(self, Vi_polar, Vj_polar, Gij, Bij, Hij=None):
@@ -571,14 +547,6 @@ class PowerNetwork(object):
                 Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
                 Lii += Vk*(Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak))
             return Lii
-            # Lii = 2*Bii*Vi
-            #
-            # for bus_id_k in connected_bus_ids:
-            #     bus_k = self.get_bus_by_id(bus_id_k)
-            #     Vk, thetak = bus_k.get_current_node_voltage()
-            #     Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
-            #     Lii += Vk*Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak)
-            # return Lii
 
     
     # @staticmethod
@@ -601,30 +569,13 @@ class PowerNetwork(object):
 
     def nr(self, tolerance=0.0001):
         fx = self.generate_function_vector()
-        i = 0
         while True:
-            print i
-        # for i in range(0, 1):
-            print 'function vect'
-            print fx
             J = csr_matrix(self.generate_jacobian_matrix())
-            # print 'jacobian:'
-            # print A.todense()
-            # h = spsolve(A, b)
-            # print 'inv * f(x):'
-            # print h
             x = self.get_current_voltage_vector()
-            # print 'current states'
-            # print x
-            # print 'new states'
-            # print x_next
-            # embed()
             x_next = x - spsolve(J, fx)
             self.update_voltage_vector(x_next)
             fx = self.generate_function_vector()
             error = norm(fx, inf)
-            print error
             if error < tolerance:
                 break
-            i += 1
         return x_next

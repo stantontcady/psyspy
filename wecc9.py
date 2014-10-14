@@ -2,38 +2,38 @@
 
 from model_components import Bus, ConstantPowerLoad, PowerLine, PowerNetwork, PVBus, SynchronousDGR
 from IPython import embed
+from math import radians
 
+la = ConstantPowerLoad(P=1.25, Q=0.5) # Station A
+lb = ConstantPowerLoad(P=0.9, Q=0.3) # Station B
+lc = ConstantPowerLoad(P=1, Q=0.35) # Station C
 
-la = ConstantPowerLoad(P=125e6, Q=50e6) # Station A
-lb = ConstantPowerLoad(P=90e6, Q=30e6) # Station B
-lc = ConstantPowerLoad(P=100e6, Q=35e6) # Station C
-
-b1 = PVBus(P=1.02, V=1, theta0=0)
-b2 = PVBus(P=0.95, V=1.01, theta0=0.1)
-b3 = PVBus(P=1, V=1.04, theta0=0.2)
-b4 = Bus(shunt_y=(0, 0.088+0.079))
-b5 = Bus(nodes=la, shunt_y=(0, 0.088+0.153))
-b6 = Bus(nodes=lb, shunt_y=(0, 0.079+0.179))
-b7 = Bus(shunt_y=(0, 0.153+0.0745))
-b8 = Bus(nodes=lc, shunt_y=(0, 0.0745+0.1045))
-b9 = Bus(shunt_y=(0, 0.1045+0.179))
+b1 = PVBus(P=0.716, V=1.04, theta0=0)
+b2 = PVBus(P=1.63, V=1.025)
+b3 = PVBus(P=0.85, V=1.025)
+b4 = Bus(shunt_y=(0, 0.5*0.176 + 0.5*0.158))
+b5 = Bus(nodes=la, shunt_y=(0, 0.5*0.176 + 0.5*0.306))
+b6 = Bus(nodes=lb, shunt_y=(0, 0.5*0.158 + 0.5*0.358))
+b7 = Bus(shunt_y=(0, 0.5*0.306 + 0.5*0.149))
+b8 = Bus(nodes=lc, shunt_y=(0, 0.5*0.149 + 0.5*0.209))
+b9 = Bus(shunt_y=(0, 0.5*0.358 + 0.5*0.209))
 
 n = PowerNetwork(buses=[b1, b2, b3, b4, b5, b6, b7, b8, b9])
 
 line1 = n.connect_buses(b1, b4, z=(0, 0.0576))
-line2 = n.connect_buses(b2, b7, z=(0, 0.0625))
-line3 = n.connect_buses(b3, b9, z=(0, 0.0586))
 line4 = n.connect_buses(b4, b5, z=(0.01, 0.085))
-line5 = n.connect_buses(b4, b6, z=(0.017, 0.092))
 line6 = n.connect_buses(b5, b7, z=(0.032, 0.161))
+line5 = n.connect_buses(b4, b6, z=(0.017, 0.092))
 line7 = n.connect_buses(b6, b9, z=(0.039, 0.17))
 line8 = n.connect_buses(b7, b8, z=(0.0085, 0.072))
+line3 = n.connect_buses(b3, b9, z=(0, 0.0586))
 line9 = n.connect_buses(b8, b9, z=(0.0119, 0.1008))
+line2 = n.connect_buses(b2, b7, z=(0, 0.0625))
 
-G, B = n.generate_admittance_matrix()
 
-embed()
+n.set_slack_bus(b1)
 
-# bus 2 = bus 7
-# bus 3 = bus 9
-# bus 1 = bus 4
+# G, B, _ = n.generate_admittance_matrix()
+
+
+x = n.nr()
