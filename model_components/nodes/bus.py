@@ -103,19 +103,17 @@ class Bus(Node):
             if node_type == 'DGR' or node_type == 'SynchronousDGR':
                 return True
         return False
+
         
     def get_specified_real_reactive_power(self):
         P = 0
         Q = 0
         if self._node_type == 'PVBus':
-            PVp, PVq = self.get_current_real_reactive_power()
+            PVp, _ = self.get_current_real_reactive_power()
             P += PVp
-            Q += PVq
         for node in self.child_nodes:
             if node._node_type == 'ConstantPowerLoad':
                 P -= node.P
                 Q -= node.Q
                 
         return P, Q
-
-        

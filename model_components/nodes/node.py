@@ -60,6 +60,18 @@ class Node(object):
     def update_node_voltage_angle(self, theta):
         _, theta = self.update_node_voltage(self.V[-1], theta)
         return theta
+        
+    def replace_node_voltage(self, V, theta):
+        self.V[-1] = V
+        self.theta[-1] = theta
+        return self.get_current_node_voltage()
+    
+    
+    def replace_node_voltage_magnitude(self, V):
+        self.V[-1] = V
+        
+    def replace_node_voltage_angle(self, theta):
+        self.theta[-1] = theta
     
         
     def get_current_node_voltage(self):

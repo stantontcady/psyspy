@@ -23,6 +23,8 @@ line6 = n.connect_buses(b4, b5, z=(0.017, 0.092))
 line7 = n.connect_buses(b4, b6, z=(0.017, 0.092))
 line8 = n.connect_buses(b5, b7, z=(0.017, 0.092))
 
+n.set_slack_bus(b1)
+
 
 # G, B = n.generate_admittance_matrix()
 
