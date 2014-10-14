@@ -33,7 +33,4 @@ line2 = n.connect_buses(b2, b7, z=(0, 0.0625))
 
 n.set_slack_bus(b1)
 
-# G, B, _ = n.generate_admittance_matrix()
-
-
 x = n.nr()
