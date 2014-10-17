@@ -1,6 +1,6 @@
 import unittest
 
-from numpy import array, asarray, matrix
+from numpy import array, asarray, matrix, genfromtxt
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 from scipy.sparse import lil_matrix
 
@@ -42,33 +42,24 @@ class TestPowerNetwork(unittest.TestCase):
     
     def test_generate_admittance_matrix(self):
         network = create_wecc_9_bus_network()
-        expected_G = array(
-            [[ 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-             [ 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-             [ 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-             [ 0., 0., 0., 3.30737896, -1.36518771, -1.94219125, 0., 0., 0.],
-             [ 0., 0., 0.,-1.36518771, 2.55279209, 0., -1.18760438, 0., 0.],
-             [ 0., 0., 0.,-1.94219125, 0., 3.22420039, 0., 0., -1.28200914],
-             [ 0., 0., 0., 0., -1.18760438, 0., 2.80472685, -1.61712247, 0.],
-             [ 0., 0., 0., 0., 0., 0., -1.61712247, 2.77220995, -1.15508748],
-             [ 0., 0., 0., 0., 0., -1.28200914, 0., -1.15508748, 2.43709662]])
+        expected_G = genfromtxt('resources/tests/wecc9_conductance.csv', delimiter=',')
         
-        expected_B = array(
-            [[ 17.36111111, 0., 0., -17.36111111, 0., 0., 0., 0., 0.],
-             [ 0., 16., 0., 0., 0., 0., -16., 0., 0.],
-             [ 0., 0., 17.06484642, 0., 0., 0., 0., 0., -17.06484642],
-             [-17.36111111, 0., 0., 39.30888873, -11.60409556, -10.51068205, 0., 0., 0.],
-             [ 0., 0., 0., -11.60409556, 17.3382301, 0., -5.97513453, 0., 0.],
-             [ 0., 0., 0., -10.51068205, 0., 15.84092701, 0., 0., -5.58824496],
-             [ 0., -16., 0., 0., -5.97513453, 0., 35.44561313, -13.6979786, 0.],
-             [ 0., 0., 0., 0., 0., 0., -13.6979786, 23.30324902, -9.78427043],
-             [ 0., 0., -17.06484642, 0., 0., -5.58824496, 0., -9.78427043, 32.15386181]])
+        expected_B = genfromtxt('resources/tests/wecc9_susceptance.csv', delimiter=',')
              
         actual_G, actual_B, _ = network.generate_admittance_matrix()
         actual_G = asarray(actual_G.todense())
         actual_B = asarray(actual_B.todense())
         
         assert_array_almost_equal(actual_G, expected_G, 8)
+        
+    def test_generate_jacobian_matrix(self):
+        expected_J = genfromtxt('resources/tests/wecc9_jacobian.csv', delimiter=',')
+
+        network = create_wecc_9_bus_network()
+        actual_J = network.generate_jacobian_matrix()
+        actual_J = asarray(actual_J.todense())
+        
+        assert_array_almost_equal(actual_J, expected_J, 8)
     
 if __name__ == '__main__':
     unittest.main()
