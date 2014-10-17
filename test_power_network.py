@@ -51,6 +51,7 @@ class TestPowerNetwork(unittest.TestCase):
         actual_B = asarray(actual_B.todense())
         
         assert_array_almost_equal(actual_G, expected_G, 8)
+
         
     def test_generate_jacobian_matrix(self):
         expected_J = genfromtxt('resources/tests/wecc9_jacobian.csv', delimiter=',')
@@ -60,6 +61,15 @@ class TestPowerNetwork(unittest.TestCase):
         actual_J = asarray(actual_J.todense())
         
         assert_array_almost_equal(actual_J, expected_J, 8)
+
+        
+    def test_solve_power_flow(self):
+        expected_final_states = genfromtxt('resources/tests/wecc9_final_states.csv', delimiter=',')
+        
+        network = create_wecc_9_bus_network()
+        actual_final_states = network.solve_power_flow()
+        
+        assert_array_almost_equal(actual_final_states, expected_final_states, 8)
     
 if __name__ == '__main__':
     unittest.main()

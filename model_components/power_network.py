@@ -567,7 +567,7 @@ class PowerNetwork(object):
         return None
         
 
-    def nr(self, tolerance=0.00001):
+    def solve_power_flow(self, tolerance=0.00001):
         fx = self.generate_function_vector()
         while True:
             J = csr_matrix(self.generate_jacobian_matrix())
