@@ -89,10 +89,38 @@ class Bus(Node):
     
     def update_voltage(self, V, theta):
         self.update_node_voltage(V, theta)
+        self.save_bus_voltage_to_child_nodes()
+
+            
+    def replace_voltage(self, V, theta):
+        self.replace_node_voltage(V, theta)
+        self.save_bus_voltage_to_child_nodes()
+
+
+    def replace_voltage_magnitude(self, theta):
+        self.replace_node_voltage_magnitude(theta)
+        self.save_bus_voltage_to_child_nodes()
+        
+    
+    def replace_voltage_angle(self, theta):
+        self.replace_node_voltage_angle(theta)
+        self.save_bus_voltage_to_child_nodes()
+        
+    
+    def reset_voltage_to_unity_magnitude_zero_angle(self):
+        self.set_initial_node_voltage(1.0, 0.0)
+        self.save_bus_voltage_to_child_nodes()
+        
+    
+    def reset_voltage_to_zero_angle(self):
+        self.set_initial_node_voltage(self.V[-1], 0.0)
+        self.save_bus_voltage_to_child_nodes()
+            
+            
+    def save_bus_voltage_to_child_nodes(self):
         for node in self.child_nodes:
             node.V = self.V
             node.theta = self.theta
-            # node.update_node_voltage(V, theta)
         
 
     def has_generator_attached(self):

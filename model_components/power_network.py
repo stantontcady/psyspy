@@ -86,11 +86,11 @@ class PowerNetwork(object):
         for power_line in self.power_lines:
             for bus in [power_line.bus_a, power_line.bus_b]:
                 try:
-                    bus_info['%i' % bus.get_id()] += 1
+                    bus_info['%i' % bus.get_id()] = (bus.get_id(), bus_info['%i' % bus.get_id()][1] + 1)
                 except KeyError:
-                    bus_info['%i' % bus.get_id()] = 1
-
-        return [int(bus_tuple[0]) for bus_tuple in sorted(bus_info.items(), key=itemgetter(1))]
+                    bus_info['%i' % bus.get_id()] = (bus.get_id(), 1)
+        
+        return [bus_tuple[0] for bus_tuple in sorted([value for _, value in bus_info.iteritems()], key=itemgetter(1, 0))]
 
         
     def get_power_line_by_id(self, power_line_id):
@@ -176,40 +176,41 @@ class PowerNetwork(object):
         return admittance_matrix_index_bus_id_mapping    
 
 
-    def get_admittance_matrix_index_bus_id_mapping(self, optimal_ordering=True, use_current_ordering=True):
+    def get_admittance_matrix_index_bus_id_mapping(self):
         try:
             admittance_matrix_index_bus_id_mapping = self.admittance_matrix_index_bus_id_mapping
-            if (admittance_matrix_index_bus_id_mapping['optimal_ordering'] != optimal_ordering and 
-                use_current_ordering is not True):
-                admittance_matrix_index_bus_id_mapping = self.save_admittance_matrix_index_bus_id_mapping(optimal_ordering=optimal_ordering)
         except AttributeError:
-            admittance_matrix_index_bus_id_mapping = self.save_admittance_matrix_index_bus_id_mapping(optimal_ordering=optimal_ordering)
+            raise AttributeError('missing admittance matrix mapping for this power network')
         
         return admittance_matrix_index_bus_id_mapping['mapping']
-    
 
-    def generate_admittance_matrix(self, admittance_matrix_index_bus_id_mapping=None, optimal_ordering=True):
+        
+    def is_admittance_matrix_index_bus_id_mapping_optimal(self):
+        try:
+            admittance_matrix_index_bus_id_mapping = self.admittance_matrix_index_bus_id_mapping
+            return admittance_matrix_index_bus_id_mapping['optimal_ordering']
+        except AttributeError:
+            return None
+
+
+    def generate_admittance_matrix(self, optimal_ordering=True):
         n = len(self.buses)
         G = zeros([n,n], dtype=float)
         B = zeros([n,n], dtype=float)
         
-        if admittance_matrix_index_bus_id_mapping is None:
-            admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping(optimal_ordering)
-        else:
-            self.save_admittance_matrix_index_bus_id_mapping(admittance_matrix_index_bus_id_mapping)
+        # if ordering type is changing from the ordering used in the saved mapping we need to regenerate the mapping
+        if optimal_ordering != self.is_admittance_matrix_index_bus_id_mapping_optimal():
+            _ = self.save_admittance_matrix_index_bus_id_mapping(optimal_ordering=optimal_ordering)
+
+        admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
         
-        def get_admittance_matrix_index_from_bus_id(bus_id_to_find):
-            try:
-                index_of_bus_id = admittance_matrix_index_bus_id_mapping.index(bus_id_to_find)
-            except ValueError:
-                index_of_bus_id = None
-            return index_of_bus_id
+
         for i, bus_id_i in enumerate(admittance_matrix_index_bus_id_mapping):
             bus_i = self.get_bus_by_id(bus_id_i)
             for incident_power_line_id in self.get_incident_power_line_ids_by_id(bus_id_i):
                 incident_power_line = self.get_power_line_by_id(incident_power_line_id)
                 bus_id_j = self.get_connected_bus_id(bus_i, incident_power_line)
-                j = get_admittance_matrix_index_from_bus_id(bus_id_j)
+                j = self._get_admittance_matrix_index_from_bus_id(bus_id_j)
                 if j is None:
                     raise ValueError('cannot generate admittance matrix, bus id %i cannot be found' % (bus_id_j))
                 (gij, bij) = incident_power_line.y
@@ -238,7 +239,7 @@ class PowerNetwork(object):
         return self.G, self.B
 
 
-    def get_admittance_matrix(self, optimal_ordering=True):
+    def get_admittance_matrix(self):
         try:
             G = self.G
         except AttributeError:
@@ -249,12 +250,7 @@ class PowerNetwork(object):
             B = None
         
         if G is None or B is None:
-            Ggen, Bgen = self.save_admittance_matrix(G, B, optimal_ordering)
-        
-        if G is None:
-            G = Ggen
-        if B is None:
-            B = Bgen
+            raise AttributeError('missing conductance or susceptance matrix for this power network')
             
         return G, B
         
@@ -290,7 +286,7 @@ class PowerNetwork(object):
             slack_bus_id = self.slack_bus_id
             return slack_bus_id
         except AttributeError:
-            return self.select_slack_bus()
+            raise AttributeError('no slack bus selected for this power network')
     
 
     def set_slack_bus(self, bus):
@@ -298,9 +294,8 @@ class PowerNetwork(object):
         return self.slack_bus_id
         
         
-    def get_admittance_matrix_index_from_bus_id(self, bus_id_to_find, use_current_ordering=True):
-        admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping(
-                                                            use_current_ordering=use_current_ordering)
+    def _get_admittance_matrix_index_from_bus_id(self, bus_id_to_find):
+        admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
 
         try:
             index_of_bus_id = admittance_matrix_index_bus_id_mapping.index(bus_id_to_find)
@@ -310,10 +305,10 @@ class PowerNetwork(object):
         return index_of_bus_id
         
         
-    def get_admittance_value_from_bus_ids(self, bus_id_i, bus_id_j, use_current_ordering=True):
-        i = self.get_admittance_matrix_index_from_bus_id(bus_id_i, use_current_ordering)
+    def _get_admittance_value_from_bus_ids(self, bus_id_i, bus_id_j):
+        i = self._get_admittance_matrix_index_from_bus_id(bus_id_i)
         if bus_id_i != bus_id_j:
-            j = self.get_admittance_matrix_index_from_bus_id(bus_id_j, use_current_ordering)
+            j = self._get_admittance_matrix_index_from_bus_id(bus_id_j)
         else:
             j = i
         if i is None or j is None:
@@ -324,11 +319,11 @@ class PowerNetwork(object):
         return G[i, j], B[i, j]
         
         
-    def get_current_voltage_vector(self, optimal_ordering=True):
+    def _get_current_voltage_vector(self):
         # don't need the output, just need to ensure a slack bus has been selected
         _ = self.get_slack_bus_id()
         voltage_vector = array([])
-        for bus_id in self.get_admittance_matrix_index_bus_id_mapping(optimal_ordering=optimal_ordering):
+        for bus_id in self.get_admittance_matrix_index_bus_id_mapping():
             bus = self.get_bus_by_id(bus_id)
             if self.is_slack_bus_by_id(bus_id) is True:
                 continue
@@ -340,24 +335,33 @@ class PowerNetwork(object):
         return voltage_vector
         
     
-    def update_voltage_vector(self, new_voltage_vector, optimal_ordering=True):
+    def _save_new_voltages_from_vector(self, new_voltage_vector):
         i = 0
-        for bus_id in self.get_admittance_matrix_index_bus_id_mapping(optimal_ordering=optimal_ordering):
+        for bus_id in self.get_admittance_matrix_index_bus_id_mapping():
             bus = self.get_bus_by_id(bus_id)
             if self.is_slack_bus(bus) is True:
                 continue
             if bus.has_generator_attached() is False:
-                _, _ = bus.replace_node_voltage(new_voltage_vector[i+1], new_voltage_vector[i])
+                bus.replace_voltage(new_voltage_vector[i+1], new_voltage_vector[i])
                 i += 1
             else:
-                bus.replace_node_voltage_angle(new_voltage_vector[i])
+                bus.replace_voltage_angle(new_voltage_vector[i])
             
             i += 1
+            
+    
+    def reset_voltages_to_flat_profile(self):
+        for bus in self.buses:
+            if(bus.has_generator_attached() is False):
+                bus.reset_voltage_to_unity_magnitude_zero_angle()
+            else:
+                if self.is_slack_bus(bus) is False:
+                    bus.reset_voltage_to_zero_angle()
 
             
-    def generate_function_vector(self, optimal_ordering=True):
+    def _generate_function_vector(self):
         function_vector = array([])
-        admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping(optimal_ordering=optimal_ordering)
+        admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
         for bus_id in admittance_matrix_index_bus_id_mapping:
             bus = self.get_bus_by_id(bus_id)
             if self.is_slack_bus(bus) is True:
@@ -373,7 +377,7 @@ class PowerNetwork(object):
     def _fp_fq_helper(self, bus):
         bus_id_i = bus.get_id()
         Vi, thetai = bus.get_current_node_voltage()
-        Gii, Bii = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
+        Gii, Bii = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
         Pnet, Qnet = bus.get_specified_real_reactive_power()
 
         
@@ -387,7 +391,7 @@ class PowerNetwork(object):
         for bus_id_k in self.get_all_connected_bus_ids_by_id(bus_id_i):
             bus_k = self.get_bus_by_id(bus_id_k)
             Vk, thetak = bus_k.get_current_node_voltage()
-            Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
+            Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
             fp += Vk*(Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak))
             if bus.has_generator_attached() is False:
                 fq += Vk*(Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak))
@@ -398,11 +402,8 @@ class PowerNetwork(object):
         return fp, fq
                 
     
-    def generate_jacobian_matrix(self, optimal_ordering=True):
-        # run this to ensure that admittance matrix is generated, but don't actually need it in a local var
-        _, _ = self.get_admittance_matrix(optimal_ordering=optimal_ordering)
-        
-        admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping(use_current_ordering=True)
+    def _generate_jacobian_matrix(self):
+        admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
         slack_bus_id = self.get_slack_bus_id()
         
         J, list_of_bus_id_lists = frompyfunc(self._jacobian_diagonal_helper, 1, 2)(admittance_matrix_index_bus_id_mapping)
@@ -429,7 +430,7 @@ class PowerNetwork(object):
                 else:
                     bus_id_j = jacobian_matrix_index_bus_id_mapping[j]
                     if bus_id_j in connected_bus_ids and self.is_slack_bus_by_id(bus_id_j) is False:
-                        Gij, Bij = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_j)
+                        Gij, Bij = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_j)
                         bus_j = self.get_bus_by_id(bus_id_j)
                         Vj_polar = bus_j.get_current_node_voltage()
 
@@ -487,8 +488,8 @@ class PowerNetwork(object):
         
     def _jacobian_hii_helper(self, bus_id_i, Vi_polar, connected_bus_ids, Lii=None):
         Vi, thetai = Vi_polar
-        if False: # if Lii is not None:
-            _, Bii = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
+        if Lii is not None:
+            _, Bii = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
             Qneti = self._get_qneti(Bii, Vi, Lii=Lii)
             return Bii*Vi**2 - Qneti
         else:
@@ -496,7 +497,7 @@ class PowerNetwork(object):
             for bus_id_k in connected_bus_ids:
                 bus_k = self.get_bus_by_id(bus_id_k)
                 Vk, thetak = bus_k.get_current_node_voltage()
-                Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
+                Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
                 Hii += Vk*(Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak))
 
             return -1*Vi*Hii
@@ -513,8 +514,8 @@ class PowerNetwork(object):
         
     def _jacobian_nii_helper(self, bus_id_i, Vi_polar, connected_bus_ids, Kii=None):
         Vi, thetai = Vi_polar
-        Gii, _ = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
-        if False: # if Kii is not None:
+        Gii, _ = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
+        if Kii is not None:
             Pneti = self._get_pneti(Gii, Vi, Kii=Kii)
             return Gii*Vi + Pneti/Vi
         else:
@@ -522,7 +523,7 @@ class PowerNetwork(object):
             for bus_id_k in connected_bus_ids:
                 bus_k = self.get_bus_by_id(bus_id_k)
                 Vk, thetak = bus_k.get_current_node_voltage()
-                Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
+                Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
                 Nii += Vk*(Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak))
             return Nii
         
@@ -538,8 +539,8 @@ class PowerNetwork(object):
     
     def _jacobian_kii_helper(self, bus_id_i, Vi_polar, connected_bus_ids, Nii=None):
         Vi, thetai = Vi_polar
-        if False: #if Nii is not None:
-            Gii, _ = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
+        if Nii is not None:
+            Gii, _ = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
             Pneti = self._get_pneti(Gii, Vi, Nii=Nii)
             return -1*Gii*Vi**2 + Pneti
         else:
@@ -547,7 +548,7 @@ class PowerNetwork(object):
             for bus_id_k in connected_bus_ids:
                 bus_k = self.get_bus_by_id(bus_id_k)
                 Vk, thetak = bus_k.get_current_node_voltage()
-                Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
+                Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
                 Kii += Vk*(Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak))
             return Vi*Kii
         
@@ -562,9 +563,9 @@ class PowerNetwork(object):
         
     
     def _jacobian_lii_helper(self, bus_id_i, Vi_polar, connected_bus_ids, Hii=None):
-        _, Bii = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
+        _, Bii = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
         Vi, thetai = Vi_polar
-        if False: #if Hii is not None:
+        if Hii is not None:
             Qneti = self._get_qneti(Bii, Vi, Hii=Hii)
             return Bii*Vi + Qneti/Vi
         else:
@@ -573,13 +574,13 @@ class PowerNetwork(object):
             for bus_id_k in connected_bus_ids:
                 bus_k = self.get_bus_by_id(bus_id_k)
                 Vk, thetak = bus_k.get_current_node_voltage()
-                Gik, Bik = self.get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
+                Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
                 Lii += Vk*(Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak))
             return Lii
 
     
-    # @staticmethod
-    def _get_pneti(self, Gii, Vi, Nii=None, Kii=None):
+    @staticmethod
+    def _get_pneti(Gii, Vi, Nii=None, Kii=None):
         if Nii is not None:
             return Vi*(Nii-Gii*Vi)
         elif Kii is not None:
@@ -587,8 +588,8 @@ class PowerNetwork(object):
         return None
 
     
-    # @staticmethod
-    def _get_qneti(self, Bii, Vi, Hii=None, Lii=None):
+    @staticmethod
+    def _get_qneti(Bii, Vi, Hii=None, Lii=None):
         if Hii is not None:
             return Bii*Vi**2 - Hii
         elif Lii is not None:
@@ -597,13 +598,15 @@ class PowerNetwork(object):
         
 
     def solve_power_flow(self, tolerance=0.00001, optimal_ordering=True):
-        fx = self.generate_function_vector(optimal_ordering=optimal_ordering)
+        if optimal_ordering != self.is_admittance_matrix_index_bus_id_mapping_optimal():
+            self.save_admittance_matrix(optimal_ordering=optimal_ordering)
+        fx = self._generate_function_vector()
         while True:
-            J = csr_matrix(self.generate_jacobian_matrix(optimal_ordering=optimal_ordering))
-            x = self.get_current_voltage_vector(optimal_ordering=optimal_ordering)
+            J = csr_matrix(self._generate_jacobian_matrix())
+            x = self._get_current_voltage_vector()
             x_next = x - spsolve(J, fx)
-            self.update_voltage_vector(x_next, optimal_ordering=optimal_ordering)
-            fx = self.generate_function_vector(optimal_ordering=optimal_ordering)
+            self._save_new_voltages_from_vector(x_next)
+            fx = self._generate_function_vector()
             error = norm(fx, inf)
             if error < tolerance:
                 break

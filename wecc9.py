@@ -32,5 +32,7 @@ line2 = n.connect_buses(b2, b7, z=(0, 0.0625))
 
 
 n.set_slack_bus(b1)
+# G, B = n.generate_admittance_matrix(optimal_ordering=False)
+# x = n.solve_power_flow()
+# savetxt("final_states_optimal.csv", x, delimiter=",")
 embed()
-x = n.solve_power_flow()
