@@ -45,8 +45,8 @@ class TestPowerNetwork(unittest.TestCase):
     def test_generate_admittance_matrix(self):
         expected_G = genfromtxt('resources/tests/wecc9_conductance_matrix.csv', delimiter=',')
         expected_B = genfromtxt('resources/tests/wecc9_susceptance_matrix.csv', delimiter=',')
-        expected_G_optimal = genfromtxt('resources/tests/wecc9_conductance_matrix_optimal.csv', delimiter=',')
-        expected_B_optimal = genfromtxt('resources/tests/wecc9_susceptance_matrix_optimal.csv', delimiter=',')
+        expected_G_optimal = genfromtxt('resources/tests/wecc9_conductance_matrix_optimal_ordering.csv', delimiter=',')
+        expected_B_optimal = genfromtxt('resources/tests/wecc9_susceptance_matrix_optimal_ordering.csv', delimiter=',')
 
         network = create_wecc_9_bus_network()
 
@@ -67,48 +67,43 @@ class TestPowerNetwork(unittest.TestCase):
         assert_array_almost_equal(actual_B_optimal, expected_B_optimal, 8)
 
         
-    # def test_generate_jacobian_matrix(self):
-    #     expected_J = genfromtxt('resources/tests/wecc9_jacobian_matrix.csv', delimiter=',')
-    #     expected_J_optimal = genfromtxt('resources/tests/wecc9_jacobian_matrix_optimal.csv', delimiter=',')
-    #
-    #     network = create_wecc_9_bus_network()
-    #
-    #     _, _ = network.save_admittance_matrix(optimal_ordering=False)
-    #
-    #     print network.get_admittance_matrix_index_bus_id_mapping()
-    #
-    #     actual_J = network._generate_jacobian_matrix()
-    #     actual_J = asarray(actual_J.todense())
-    #
-    #     assert_array_almost_equal(actual_J, expected_J, 8)
-    #
-    #     _, _ = network.save_admittance_matrix()
-    #
-    #     print network.get_admittance_matrix_index_bus_id_mapping()
-    #
-    #     actual_J_optimal = network._generate_jacobian_matrix()
-    #     actual_J_optimal = asarray(actual_J_optimal.todense())
-    #
-    #
-    #     assert_array_almost_equal(actual_J_optimal, expected_J_optimal, 8)
+    def test_generate_jacobian_matrix(self):
+        expected_J = genfromtxt('resources/tests/wecc9_jacobian_matrix.csv', delimiter=',')
+        expected_J_optimal = genfromtxt('resources/tests/wecc9_jacobian_matrix_optimal_ordering.csv', delimiter=',')
+
+        network = create_wecc_9_bus_network()
+
+        _, _ = network.save_admittance_matrix(optimal_ordering=False)
+
+        actual_J = network._generate_jacobian_matrix()
+        actual_J = asarray(actual_J.todense())
+
+        assert_array_almost_equal(actual_J, expected_J, 8)
+
+        _, _ = network.save_admittance_matrix()
+
+        actual_J_optimal = network._generate_jacobian_matrix()
+        actual_J_optimal = asarray(actual_J_optimal.todense())
 
 
-    # def test_solve_power_flow(self):
-    #     network = create_wecc_9_bus_network()
-    #
-    #     expected_final_states = genfromtxt('resources/tests/wecc9_final_states.csv', delimiter=',')
-    #     expected_final_states_optimal_ordering = genfromtxt('resources/tests/wecc9_final_states_optimal_ordering.csv', delimiter=',')
-    #
-    #     actual_final_states = network.solve_power_flow(optimal_ordering=False)
-    #
-    #     assert_array_almost_equal(actual_final_states, expected_final_states, 8)
-    #
-    #     network.reset_voltages_to_flat_profile()
-    #
-    #     actual_final_states_optimal_ordering = network.solve_power_flow(optimal_ordering=True)
-    #     embed()
-    #
-        # assert_array_almost_equal(actual_final_states_optimal_ordering, expected_final_states_optimal_ordering, 8)
+        assert_array_almost_equal(actual_J_optimal, expected_J_optimal, 8)
+
+
+    def test_solve_power_flow(self):
+        network = create_wecc_9_bus_network()
+
+        expected_final_states = genfromtxt('resources/tests/wecc9_final_states.csv', delimiter=',')
+        expected_final_states_optimal_ordering = genfromtxt('resources/tests/wecc9_final_states_optimal_ordering.csv', delimiter=',')
+
+        actual_final_states = network.solve_power_flow(optimal_ordering=False)
+
+        assert_array_almost_equal(actual_final_states, expected_final_states, 8)
+
+        network.reset_voltages_to_flat_profile()
+
+        actual_final_states_optimal_ordering = network.solve_power_flow(optimal_ordering=True)
+
+        assert_array_almost_equal(actual_final_states_optimal_ordering, expected_final_states_optimal_ordering, 8)
     
 if __name__ == '__main__':
     unittest.main()
