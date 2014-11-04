@@ -85,26 +85,69 @@ class Bus(Node):
         node.set_initial_node_voltage(self.V[0], self.theta[0])
     
         self.child_nodes.append(node)
-
     
-    def update_voltage(self, V, theta):
-        self.update_node_voltage(V, theta)
-        self.save_bus_voltage_to_child_nodes()
-
+    def update_voltage(self, V, theta, replace=False, save_to_child_nodes=True):
+        Vout = self.update_voltage_magnitude(V, replace=replace, save_to_child_nodes=save_to_child_nodes)
+        thetaOut = self.update_voltage_angle(theta, replace=replace, save_to_child_nodes=save_to_child_nodes)
+        return Vout, thetaOut            
             
-    def replace_voltage(self, V, theta):
-        self.replace_node_voltage(V, theta)
-        self.save_bus_voltage_to_child_nodes()
+    
+    def update_voltage_magnitude(self, V, replace=False, save_to_child_nodes=True):
+        if replace is True:
+            return self.replace_voltage_magnitude(V, save_to_child_nodes=save_to_child_nodes)
+        else:
+            return self.append_voltage_magnitude(V, save_to_child_nodes=save_to_child_nodes)
+            
+    
+    def update_voltage_angle(self, theta, replace=False, save_to_child_nodes=True):
+        if replace is True:
+            return self.replace_voltage_angle(theta, save_to_child_nodes=save_to_child_nodes)
+        else:
+            return self.append_voltage_angle(theta, save_to_child_nodes=save_to_child_nodes)
 
 
-    def replace_voltage_magnitude(self, theta):
-        self.replace_node_voltage_magnitude(theta)
-        self.save_bus_voltage_to_child_nodes()
+    def replace_voltage(self, V, theta, save_to_child_nodes=True):
+        Vout = self.replace_voltage_magnitude(V, save_to_child_nodes=False)
+        thetaOut = self.replace_voltage_angle(theta, save_to_child_nodes=False)
+        if save_to_child_nodes is True:
+            self.save_bus_voltage_to_child_nodes()
+        return Vout, thetaOut
+
+
+    def replace_voltage_magnitude(self, V, save_to_child_nodes=True):
+        Vout = self.replace_node_voltage_magnitude(V)
+        if save_to_child_nodes is True:
+            self.save_bus_voltage_to_child_nodes()
+        return Vout
         
     
-    def replace_voltage_angle(self, theta):
-        self.replace_node_voltage_angle(theta)
-        self.save_bus_voltage_to_child_nodes()
+    def replace_voltage_angle(self, theta, save_to_child_nodes=True):
+        thetaOut = self.replace_node_voltage_angle(theta)
+        if save_to_child_nodes is True:
+            self.save_bus_voltage_to_child_nodes()
+        return thetaOut
+        
+    
+    def append_voltage(self, V, theta, save_to_child_nodes=True):
+        Vout = self.append_voltage_magnitude(V, save_to_child_nodes=False)
+        thetaOut = self.append_voltage_angle(theta, save_to_child_nodes=False)
+        if save_to_child_nodes is True:
+            self.save_bus_voltage_to_child_nodes()
+        return Vout, thetaOut
+        
+        
+    def append_voltage_magnitude(self, V, save_to_child_nodes=True):
+        Vout = self.append_node_voltage_magnitude(V)
+        if save_to_child_nodes is True:
+            self.save_bus_voltage_to_child_nodes()
+        return Vout
+        
+    
+    def append_voltage_angle(self, theta, save_to_child_nodes=True):
+        thetaOut = self.append_node_voltage_angle(theta)
+        if save_to_child_nodes is True:
+            self.save_bus_voltage_to_child_nodes()
+        return thetaOut
         
     
     def reset_voltage_to_unity_magnitude_zero_angle(self):

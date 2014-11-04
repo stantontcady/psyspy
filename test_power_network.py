@@ -1,10 +1,10 @@
 import unittest
 
 from numpy import array, asarray, matrix, genfromtxt
-from numpy.testing import assert_array_equal, assert_array_almost_equal
+from numpy.testing import assert_array_equal, assert_array_almost_equal, assert_array_equal
 from scipy.sparse import lil_matrix
 
-from model_components import Bus, ConstantPowerLoad, PowerLine, PowerNetwork, PVBus, SynchronousDGR
+from model_components import Bus, ConstantPowerLoad, Node, PowerLine, PowerNetwork, PVBus, SynchronousDGR
 
 from IPython import embed
 
@@ -41,6 +41,77 @@ def create_wecc_9_bus_network():
     return n
 
 class TestPowerNetwork(unittest.TestCase):
+    
+    def test_node_functions(self):
+        def series_of_tests(object_to_test):
+            def assert_voltage_equal(expected_voltage, actual_voltage=None):
+                if actual_voltage is None:
+                    actual_voltage_magnitude, actual_voltage_angle = object_to_test.get_current_node_voltage()
+                
+                expected_voltage_magnitude, expected_voltage_angle = expected_voltage
+                
+                self.assertEqual(expected_voltage_magnitude, actual_voltage_magnitude)
+                self.assertEqual(expected_voltage_angle, actual_voltage_angle)
+
+            # initial conditions should be V=1, theta=0
+            expected_test_voltage = (1, 0)
+            assert_voltage_equal(expected_test_voltage)
+            
+            expected_test_voltage = (1.2, 0.1)
+            _, _ = object_to_test.replace_node_voltage(1.2, 0.1)
+            assert_voltage_equal(expected_test_voltage)
+            
+            expected_test_voltage = (1.1, 0.053)
+            _, _ = object_to_test.append_node_voltage(1.1, 0.053)
+            assert_voltage_equal(expected_test_voltage)
+        
+        node = Node()
+        # also want to test that Bus inherits these methods properly
+        bus = Bus()
+        
+        series_of_tests(node)
+        series_of_tests(bus)
+        
+        
+    def test_bus_functions(self):
+        bus = Bus()
+        
+        # initial conditions should be V=1, theta=0
+        actual_voltage_magnitude, actual_voltage_angle = bus.get_current_node_voltage()
+        expected_voltage_magnitude = 1
+        expected_voltage_angle = 0
+        self.assertEqual(expected_voltage_magnitude, actual_voltage_magnitude)
+        self.assertEqual(expected_voltage_angle, actual_voltage_angle)
+        
+        
+        expected_voltage_magnitude = array([1, 1.15])
+        expected_voltage_angle = array([0, 0.02])
+        _, _ = bus.update_voltage(1.15, 0.02, replace=False)
+        assert_array_equal(expected_voltage_magnitude, bus.V)
+        assert_array_equal(expected_voltage_angle, bus.theta)
+        
+        expected_voltage_magnitude = array([1, 1.15, 1.12])
+        _ = bus.update_voltage_magnitude(1.12, replace=False)
+        assert_array_equal(expected_voltage_magnitude, bus.V)
+        
+        expected_voltage_angle = array([0, 0.02, 0.034])
+        _ = bus.update_voltage_angle(0.034, replace=False)
+        assert_array_equal(expected_voltage_angle, bus.theta)
+        
+        expected_voltage_magnitude = array([1, 1.15, 1.14])
+        _ = bus.update_voltage_magnitude(1.14, replace=True)
+        assert_array_equal(expected_voltage_magnitude, bus.V)
+        
+        expected_voltage_angle = array([0, 0.02, 0.023])
+        _ = bus.update_voltage_angle(0.023, replace=True)
+        assert_array_equal(expected_voltage_angle, bus.theta)
+        
+        bus.reset_voltage_to_unity_magnitude_zero_angle()
+        expected_voltage_magnitude = array([1])
+        expected_voltage_angle = array([0])
+        assert_array_equal(expected_voltage_magnitude, bus.V)
+        assert_array_equal(expected_voltage_angle, bus.theta)
+
     
     def test_generate_admittance_matrix(self):
         expected_G = genfromtxt('resources/tests/wecc9_conductance_matrix.csv', delimiter=',')

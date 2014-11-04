@@ -212,7 +212,7 @@ class PowerNetwork(object):
                 bus_id_j = self.get_connected_bus_id(bus_i, incident_power_line)
                 j = self._get_admittance_matrix_index_from_bus_id(bus_id_j)
                 if j is None:
-                    raise ValueError('cannot generate admittance matrix, bus id %i cannot be found' % (bus_id_j))
+                    raise AttributeError('cannot generate admittance matrix, bus id %i cannot be found' % (bus_id_j))
                 (gij, bij) = incident_power_line.y
                 G[i, i] += gij
                 B[i, i] -= bij
@@ -335,17 +335,25 @@ class PowerNetwork(object):
         return voltage_vector
         
     
-    def _save_new_voltages_from_vector(self, new_voltage_vector):
+    def _save_new_voltages_from_vector(self, new_voltage_vector, append=False):
         i = 0
         for bus_id in self.get_admittance_matrix_index_bus_id_mapping():
             bus = self.get_bus_by_id(bus_id)
             if self.is_slack_bus(bus) is True:
                 continue
+            theta = new_voltage_vector[i]
             if bus.has_generator_attached() is False:
-                bus.replace_voltage(new_voltage_vector[i+1], new_voltage_vector[i])
+                V = new_voltage_vector[i+1]
+                if append is False:
+                    bus.replace_voltage(V, theta)
+                else:
+                    bus.append_voltage(V, theta)
                 i += 1
             else:
-                bus.replace_voltage_angle(new_voltage_vector[i])
+                if append is False:
+                    bus.replace_voltage_angle(theta)
+                else:
+                    bus.append_voltage_angle(theta)
             
             i += 1
             
@@ -597,9 +605,14 @@ class PowerNetwork(object):
         return None
         
 
-    def solve_power_flow(self, tolerance=0.00001, optimal_ordering=True):
+    def solve_power_flow(self, tolerance=0.00001, optimal_ordering=True, append=True):
+        # need to check if ordering has changed since admittance matrix was last generated
         if optimal_ordering != self.is_admittance_matrix_index_bus_id_mapping_optimal():
             self.save_admittance_matrix(optimal_ordering=optimal_ordering)
+        if append is True:
+            # create a new column in each of the nodes' states to append the solution from power flow
+            x = self._get_current_voltage_vector()
+            self._save_new_voltages_from_vector(x, append=True)
         fx = self._generate_function_vector()
         while True:
             J = csr_matrix(self._generate_jacobian_matrix())
@@ -610,4 +623,33 @@ class PowerNetwork(object):
             error = norm(fx, inf)
             if error < tolerance:
                 break
+
+        self._compute_and_save_line_power_flows(append=append)
         return x_next
+        
+        
+    def _compute_and_save_line_power_flows(self, append=True):
+        for power_line in self.power_lines:
+            P, Q = self._compute_line_power_flow(power_line)
+            if append is True:
+                power_line.append_complex_power(P, Q)
+            elif append is False:
+                power_line.replace_complex_power(P, Q)
+            else:
+                raise ValueError('append kwarg must be True or False')
+
+            
+    def _compute_line_power_flow(self, power_line):
+        bus_i, bus_j = power_line.get_incident_buses()
+        bus_i_id = bus_i.get_id()
+        bus_j_id = bus_j.get_id()
+        Gij, Bij = self._get_admittance_value_from_bus_ids(bus_i_id, bus_j_id)
+        Vi, thetai = bus_i.get_current_node_voltage() 
+        Vj, thetaj = bus_j.get_current_node_voltage()
+        Pij = -Gij*Vi**2 + Vi*Vj*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
+        Qij = -Bij*Vi**2 + Vi*Vj*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
+        return Pij, Qij
+
+
+    def solve_dae(self, power_flow_tolerance=0.00001):
+        pass

@@ -47,39 +47,52 @@ class Node(object):
         
         
     def append_node_voltage(self, V, theta):
-        self.V = append(self.V, V)
-        self.theta = append(self.theta, theta)
-        return self.get_current_node_voltage()
+        Vout = self.append_node_voltage_magnitude(V)
+        thetaOut = self.append_node_voltage_angle(theta)
+        return Vout, thetaOut
 
         
     def append_node_voltage_magnitude(self, V):
-        V, _ = self.append_node_voltage(V, self.theta[-1])
-        return V
+        self.V = append(self.V, V)
+        return self.get_current_node_voltage_magnitude()
         
 
     def append_node_voltage_angle(self, theta):
-        _, theta = self.append_node_voltage(self.V[-1], theta)
-        return theta
+        self.theta = append(self.theta, theta)
+        return self.get_current_node_voltage_angle()
+
         
     def replace_node_voltage(self, V, theta):
-        self.V[-1] = V
-        self.theta[-1] = theta
-        return self.get_current_node_voltage()
+        Vout = self.replace_node_voltage_magnitude(V)
+        thetaOut = self.replace_node_voltage_angle(theta)
+        return Vout, thetaOut
     
     
     def replace_node_voltage_magnitude(self, V):
         self.V[-1] = V
-        
+        return self.get_current_node_voltage_magnitude()
+
+
     def replace_node_voltage_angle(self, theta):
         self.theta[-1] = theta
+        return self.get_current_node_voltage_angle()
     
         
     def get_current_node_voltage(self):
-        return self.V[-1], self.theta[-1]
-
+        return self.get_current_node_voltage_magnitude(), self.get_current_node_voltage_angle()
+       
         
+    def get_current_node_voltage_magnitude(self):
+        return self.V[-1]
+        
+
+    def get_current_node_voltage_angle(self):
+        return self.theta[-1]
+
+
     def get_id(self):
         return self._node_id
+
         
     def get_node_type(self):
         return self._node_type
