@@ -1,7 +1,8 @@
 from inspect import currentframe, getargvalues
 from itertools import count
+from operator import itemgetter
 from math import pi
-from numpy import append, array, empty
+from numpy import append, array, empty, nan
 
 from model_components import set_initial_conditions, set_parameter_value
 from dgr import DGR
@@ -23,6 +24,8 @@ class SynchronousDGR(DGR):
         
         self._synchronous_dgr_id = self._synchronous_dgr_ids.next() + 1
         
+        # concatenate the parameter and initial state dictionaries into one so that they can be passed to the
+        # generator model as keyword arguments
         model_kwargs = dict(**parameters)
         model_kwargs.update(initial_states)
         
@@ -85,7 +88,70 @@ class SynchronousDGR(DGR):
         return self.generator_model
         
 
-class StructurePreservingModel(object):
+class GeneratorModel(object):
+    def __init__(self, arg_values):
+        try:
+            parameter_defaults = self.parameter_defaults
+        except AttributeError:
+            print 'No default parameters provided for this model, cannot set model parameters.'
+        
+        for parameter, default_value in parameter_defaults.iteritems():
+            value = arg_values[parameter]
+            if value is None:
+                value = default_value
+            set_parameter_value(self, parameter, value)
+
+            
+    def set_model_parameters(self, parameter_dict):
+        parameters_set = []
+        for parameter, value in parameter_dict.iteritems():
+            if parameter in self.parameter_defaults:
+                setattr(self, '%s' % parameter, value)
+                parameters_set.append(parameter)
+            else:
+                print 'Could not set parameter \'%s\' as it is not valid for this model.' % (parameter)
+            
+        parameters_not_set = []
+        for parameter, _ in self.parameter_defaults.iteritems():
+            if parameter not in parameters_set:
+                parameters_not_set.append(parameter)
+        print 'The following parameters remain unchanged: %s' % (', '.join(sorted(parameters_not_set)))
+        return self.get_model_parameters()
+
+        
+    def get_model_parameters(self):
+        parameter_dict = {}
+        for parameter, _ in self.parameter_defaults.iteritems():
+            parameter_dict[parameter] = getattr(self, '%s' % parameter)
+        return parameter_dict
+        
+    
+    def get_current_states(self):
+        states = empty(len(self.state_indicies))
+        for state, index in self.state_indicies.iteritems():
+            try:
+                states[index] = getattr(self, state)[-1]
+            except AttributeError:
+                states[index] = nan
+        return states
+        
+    
+    def parse_state_vector(self, states, return_dictionary=False):
+        if return_dictionary is False:
+            return_val = ()
+        else:
+            return_val = {}
+        # sorting according to index (the value in the state_indices dictionary) so they come out in the order expected
+        for state, index in sorted(self.state_indicies.iteritems(), key=itemgetter(1)):
+            if return_dictionary is False:
+                return_val += (states[index],)
+            else:
+                return_val[state] = states[index]
+        
+        return return_val
+        
+
+class StructurePreservingModel(GeneratorModel):
     
     def __init__(self,
                  wnom=None,
@@ -108,9 +174,9 @@ class StructurePreservingModel(object):
         }
         
         self.state_indicies = {
-            'd':0,
-            'w':1,
-            'P':2
+            'd' : 0,
+            'w' : 1,
+            'P' : 2
         }
         
         # TO DO: get reasonable defaults for machine params
@@ -124,13 +190,10 @@ class StructurePreservingModel(object):
             'R' : 0,
             'X' : 0.1
         }
+        
         _, _, _, arg_values = getargvalues(currentframe())
         
-        for parameter, default_value in self.parameter_defaults.iteritems():
-            value = arg_values[parameter]
-            if value is None:
-                value = default_value
-            set_parameter_value(self, parameter, value)
+        GeneratorModel.__init__(self, arg_values)
         
         # generator set-point
         set_initial_conditions(self, 'u', u0)
@@ -175,29 +238,7 @@ class StructurePreservingModel(object):
             object_info.extend(['%s%s' % (''.rjust(2*indent_level_increment), parameter) for parameter in parameters])
             
         return object_info
-        
-   
-    def set_model_parameters(self, parameter_dict):
-        parameters_set = []
-        for parameter, value in parameter_dict.iteritems():
-            if parameter in self.parameter_defaults:
-                setattr(self, '%s' % parameter, value)
-                parameters_set.append(parameter)
-            else:
-                print 'Could not set parameter \'%s\' as it is not valid for this model.' % (parameter)
-            
-        parameters_not_set = []
-        for parameter, _ in self.parameter_defaults.iteritems():
-            if parameter not in parameters_set:
-                parameters_not_set.append(parameter)
-        print 'The following parameters remain unchanged: %s' % (', '.join(sorted(parameters_not_set)))
-        return self.get_model_parameters()
-        
-    def get_model_parameters(self):
-        parameter_dict = {}
-        for parameter, _ in self.parameter_defaults.iteritems():
-            parameter_dict[parameter] = getattr(self, '%s' % parameter)
-        return parameter_dict
+
         
     def initialize_states(self, initial_values):
         [d0, w0, P0] = initial_values
@@ -205,13 +246,7 @@ class StructurePreservingModel(object):
         set_initial_conditions(self, 'w', w0)
         set_initial_conditions(self, 'P', P0)
         return self.get_current_states()
-        
-    def get_current_states(self):
-        states = empty(3)
-        states[self.state_indicies['d']] = self.d[-1]
-        states[self.state_indicies['w']] = self.w[-1]
-        states[self.state_indicies['P']] = self.P[-1]
-        return states
+
         
     def update_states(self, states):
         d, w, P = self.parse_state_vector(states)
@@ -231,11 +266,11 @@ class StructurePreservingModel(object):
             state_tuple += (values,)
         return state_tuple
         
-    def parse_state_vector(self, states):
-        d = states[self.state_indicies['d']]
-        w = states[self.state_indicies['w']]
-        P = states[self.state_indicies['P']]
-        return d, w, P
+    # def parse_state_vector(self, states):
+    #     d = states[self.state_indicies['d']]
+    #     w = states[self.state_indicies['w']]
+    #     P = states[self.state_indicies['P']]
+    #     return d, w, P
         
     def get_current_set_points(self):
         return array([self.u[-1]])        
@@ -271,7 +306,7 @@ class StructurePreservingModel(object):
         return incremental_states
 
     
-class ClassicalModel(object):
+class ClassicalModel(GeneratorModel):
     
     def __init__(self,
                  wnom=None,
@@ -289,14 +324,14 @@ class ClassicalModel(object):
                  E0=None):
                  
         self.model_type = {
-            'simple_name':'classical',
-            'full_name':'Classical Model'
+            'simple_name' : 'classical',
+            'full_name' : 'Classical Model'
         }
         
         self.state_indicies = {
-            'd':0,
-            'w':1,
-            'P':2
+            'd' : 0,
+            'w' : 1,
+            'P' : 2
         }
         
         # TO DO: get reasonable defaults for machine params
@@ -312,11 +347,7 @@ class ClassicalModel(object):
         }
         _, _, _, arg_values = getargvalues(currentframe())
         
-        for parameter, default_value in self.parameter_defaults.iteritems():
-            value = arg_values[parameter]
-            if value is None:
-                value = default_value
-            set_parameter_value(self, parameter, value)
+        GeneratorModel.__init__(self, arg_values)
         
         # generator set-point
         set_initial_conditions(self, 'u', u0)
@@ -365,29 +396,7 @@ class ClassicalModel(object):
             object_info.extend(['%s%s' % (''.rjust(2*indent_level_increment), parameter) for parameter in parameters])
             
         return object_info
-        
-   
-    def set_model_parameters(self, parameter_dict):
-        parameters_set = []
-        for parameter, value in parameter_dict.iteritems():
-            if parameter in self.parameter_defaults:
-                setattr(self, '%s' % parameter, value)
-                parameters_set.append(parameter)
-            else:
-                print 'Could not set parameter \'%s\' as it is not valid for this model.' % (parameter)
-            
-        parameters_not_set = []
-        for parameter, _ in self.parameter_defaults.iteritems():
-            if parameter not in parameters_set:
-                parameters_not_set.append(parameter)
-        print 'The following parameters remain unchanged: %s' % (', '.join(sorted(parameters_not_set)))
-        return self.get_model_parameters()
-        
-    def get_model_parameters(self):
-        parameter_dict = {}
-        for parameter, _ in self.parameter_defaults.iteritems():
-            parameter_dict[parameter] = getattr(self, '%s' % parameter)
-        return parameter_dict
+
         
     def initialize_states(self, initial_values):
         [d0, w0, P0] = initial_values
@@ -395,13 +404,7 @@ class ClassicalModel(object):
         set_initial_conditions(self, 'w', w0)
         set_initial_conditions(self, 'P', P0)
         return self.get_current_states()
-        
-    def get_current_states(self):
-        states = empty(3)
-        states[self.state_indicies['d']] = self.d[-1]
-        states[self.state_indicies['w']] = self.w[-1]
-        states[self.state_indicies['P']] = self.P[-1]
-        return states
+
         
     def update_states(self, states):
         d, w, P = self.parse_state_vector(states)
