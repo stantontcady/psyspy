@@ -46,18 +46,6 @@ class SynchronousDGR(DGR):
             "initialize_states",
             "update_states",
             "get_incremental_states"]
-            
-        # args, _, _, defaults = getargspec(self.generator_model.get_incremental_states)
-        # print args
-        # print defaults
-            
-        for model_function in self.model_functions:
-            try:
-                args, _, _, defaults = getargspec(getattr(self.generator_model, model_function))
-                print args
-                print defaults
-            except AttributeError:
-                print 'could not add %s model function' % model_function
 
             
     def __repr__(self):
@@ -77,3 +65,47 @@ class SynchronousDGR(DGR):
                             for line in self.generator_model.repr_helper(simple=simple,
                                                                          indent_level_increment=indent_level_increment)])
         return object_info
+        
+    
+    def initialize_states(self, V=None, theta=None, overwrite_current_values=True):
+        V, theta = self._voltage_helper(V, theta)
+
+        if self._check_for_generator_model() is False:
+            raise AttributeError('No model provided for synchronous DGR %i' % self.get_id())
+            
+        initialize_method = self._check_for_generator_model_method('initialize_states')
+        if initialize_method is False:
+            raise AttributeError('The %s model does not have a method to initialize its states' % (self.generator_model.model_type['full_name']))
+        
+        return initialize_method(V, theta, overwrite_current_values=overwrite_current_values)
+
+
+    def get_incremental_states(self, V=None, theta=None, as_dictionary=False):
+        V, theta = self._voltage_helper(V, theta)
+
+        if self._check_for_generator_model() is False:
+            raise AttributeError('No model provided for synchronous DGR %i' % self.get_id())
+        
+        incremental_method = self._check_for_generator_model_method('get_incremental_states')
+        if incremental_method is False:
+            raise AttributeError('The %s model does not have a method to initialize its states' % (self.generator_model.model_type['full_name']))
+        
+        return incremental_method(V, theta, as_dictionary=as_dictionary)
+
+
+    def _check_for_generator_model(self):
+        try:
+            model = self.generator_model
+        except AttributeError:
+            return False
+        
+        return model
+
+
+    def _check_for_generator_model_method(self, method_name):
+        try:
+            method = getattr(self.generator_model, method_name)
+        except AttributeError:
+            return False
+        return method
+

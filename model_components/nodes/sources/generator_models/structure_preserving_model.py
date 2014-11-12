@@ -1,7 +1,7 @@
 from inspect import currentframe, getargvalues
 from operator import itemgetter
 from numpy import append, empty, nan
-from math import pi
+from math import asin, cos, pi, sin
 
 from generator_model import GeneratorModel
 from model_components import set_initial_conditions
@@ -17,11 +17,8 @@ class StructurePreservingModel(GeneratorModel):
                  Rd=None,
                  R=None,
                  X=None,
-                 u0=None,
-                 d0=None,
-                 w0=None,
-                 P0=None,
-                 E0=None):
+                 E=None,
+                 u0=None):
                  
         self.model_type = {
             'simple_name':'structure_preserving',
@@ -47,7 +44,8 @@ class StructurePreservingModel(GeneratorModel):
             'taug' : 0.1,
             'Rd' : 1,
             'R' : 0,
-            'X' : 0.1
+            'X' : 0.1,
+            'E' : 1
         }
 
         _, _, _, arg_values = getargvalues(currentframe())
@@ -56,17 +54,6 @@ class StructurePreservingModel(GeneratorModel):
         
         # generator set-point
         set_initial_conditions(self, 'u', u0)
-        # torque angle
-        set_initial_conditions(self, 'd', d0)
-        # speed
-        set_initial_conditions(self, 'w', w0)
-        # power output
-        set_initial_conditions(self, 'P', P0)
-        # back EMF
-        set_initial_conditions(self, 'E', E0)
-    
-    def __repr__(self):
-        return '\n'.join([line for line in self.repr_helper()])
 
         
     def repr_helper(self, simple=False, indent_level_increment=2):
@@ -83,7 +70,7 @@ class StructurePreservingModel(GeneratorModel):
             parameters.append('Generator resistance, R: %0.3f' % (self.R))
             parameters.append('Generator reactance, X: %0.3f' % (self.X))
             
-        current_states.append('Back EMF, E: %0.3f' % (self.E[-1]))
+        current_states.append('Back EMF, E: %0.3f' % (self.E))
         current_states.append('Torque angle, %s : %0.3f' % (u'\u03B4'.encode('UTF-8'), self.d[-1]))
         current_states.append('Angular speed, %s : %0.3f' % (u'\u03C9'.encode('UTF-8'), self.w[-1]))
         current_states.append('Power output, P: %0.3f' % (self.P[-1]))
@@ -98,21 +85,72 @@ class StructurePreservingModel(GeneratorModel):
             
         return object_info
 
-        
-    def get_current_set_points(self):
-        return array([self.u[-1]])
-
-
-    def update_set_point(self, u):
-        self.u = append(self.u, u)
-        return self.get_current_set_point()
-
     
-    def _d_incremental_model(self, w):
+    def _d_incremental_model(self, V, theta, current_states=None, current_setpoints=None):
+        if current_states is None:
+            current_states = self.get_current_states()
+        
+        _, w, _ = self.parse_state_vector(current_states)
+        
         return w - self.wnom
+
         
-    def _w_incremental_model(self, P, Pout, w):
-        return (1./self.M)*(-1*self.D*(w - self.wnom)) + P - Pout
+    def _d_initial_value(self, V, theta, current_setpoints=None):
+        if current_setpoints is None:
+            current_setpoints = self.get_current_setpoints()
+            
+        u, = self.parse_setpoint_vector(current_setpoints)
         
-    def _P_incremental_model(self, P, u, w):
-        return (1./self.taug)*(-P - 1./(self.Rd*self.wnom)*(w - wnom) + u)
+        return theta + asin((self.X*u)/(self.E*V))
+
+
+    def _w_incremental_model(self, V, theta, current_states=None, current_setpoints=None):
+        if current_states is None:
+            current_states = self.get_current_states()
+            
+        d, w, P = self.parse_state_vector(current_states)
+        
+        Pout = self._Pout_model(V, theta, d)
+        
+        return (1./self.M)*(P - Pout - self.D*(w - self.wnom))
+        
+
+    def _w_initial_value(self, V, theta, current_setpoints=None):
+        return self.wnom
+
+        
+    def _P_incremental_model(self, V, theta, current_states=None, current_setpoints=None):
+        if current_states is None:
+            current_states = self.get_current_states()
+            
+        _, w, P = self.parse_state_vector(current_states)
+        
+        if current_setpoints is None:
+            current_setpoints = self.get_current_setpoints()
+            
+        u, = self.parse_setpoint_vector(current_setpoints)
+        
+        return (1./self.taug)*(u - P - (1./(self.Rd*self.wnom))*(w - self.wnom))
+
+
+    def _P_initial_value(self, V, theta, current_setpoints=None):
+        if current_setpoints is None:
+            current_setpoints = self.get_current_setpoints()
+            
+        u, = self.parse_setpoint_vector(current_setpoints)
+        
+        return u
+
+        
+    def _Pout_model(self, V, theta, d=None):
+        if d is None:
+            current_states = self.get_current_states(as_dictionary=True)
+            d = current_states['d']
+        return (1./self.X)*self.E*V*sin(d - theta)
+        
+        
+    def _Qout_model(self, V, theta, d=None):
+        if d is None:
+            current_states = self.get_current_states(as_dictionary=True)
+            d = current_states['d']
+        return (1./self.X)*(self.E*V*cos(d - theta) - V**2)

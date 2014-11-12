@@ -7,7 +7,8 @@ from IPython import embed
 dgr = SynchronousDGR(
     V0=1.04,
     theta0=0,
-    initial_states={'u0': 0.716, 'd0': 0, 'w0': 2*pi*59.5, 'P0': 0.7, 'E0': 1, 'M': 1/(pi*59.5)}
+    parameters={'wnom': 2*pi*59.5, 'M': 1./(pi*59.5), 'E': 1},
+    initial_states={'u0': 0.7}
 )
 
 embed()

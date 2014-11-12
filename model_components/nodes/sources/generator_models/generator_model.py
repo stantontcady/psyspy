@@ -16,6 +16,15 @@ class GeneratorModel(object):
             if value is None:
                 value = default_value
             set_parameter_value(self, parameter, value)
+        
+        for state, _ in self._get_state_indices_sorted_by_index():
+            set_initial_conditions(self, state, nan)
+            
+    def __repr__(self):
+        try:
+            return '\n'.join([line for line in self.repr_helper()])
+        except AttributeError:
+            return 'Basic generator model, no further details known'
 
             
     def set_model_parameters(self, parameter_dict):
@@ -41,10 +50,34 @@ class GeneratorModel(object):
             parameter_dict[parameter] = getattr(self, '%s' % parameter)
         return parameter_dict
         
+
+    def initialize_states(self, V, theta, overwrite_current_values=True):
+        if overwrite_current_values is not True:
+            initial_values = empty(len(self.state_indicies))
+        
+        current_setpoints = self.get_current_setpoints()
+        
+        for state, index in self._get_state_indices_sorted_by_index():
+            try:
+                initial_value_func = getattr(self, '_%s_initial_value' % (state))
+            except AttributeError:
+                raise AttributeError('Could not get method that defines the initial value of the %s state of the %s model' % (state, self.model_type["full_name"].lower()))
+                
+            if overwrite_current_values is not True:
+                initial_values[index] = initial_value_func(V, theta, current_setpoints)
+            else:
+                set_initial_conditions(self, state, initial_value_func(V, theta, current_setpoints))
+            
+        
+        if overwrite_current_values is True:
+            return self.get_current_states()
+        else:
+            return initial_values
+        
     
     def get_current_states(self, as_dictionary=False):
         states = empty(len(self.state_indicies))
-        for state, index in self.state_indicies.iteritems():
+        for state, index in self._get_state_indices_sorted_by_index():
             try:
                 states[index] = getattr(self, state)[-1]
             except AttributeError:
@@ -68,6 +101,47 @@ class GeneratorModel(object):
                 states[state] = getattr(self, state)
         
         return states
+
+
+    def update_states(self, new_states):
+        if type(new_states) is not dict:
+            new_states = self.parse_state_vector(new_states, as_dictionary=True)
+        for state, new_state in new_states.iteritems():
+            setattr(self, state, append(getattr(self, state), new_state))
+            
+        return self.get_current_states()
+        
+
+    def get_incremental_states(self, V, theta, as_dictionary=False):
+        try:
+            state_indices = self.state_indicies
+        except AttributeError:
+            raise AttributeError('No state indices provided, cannot get incremental states')
+            
+        if as_dictionary is False:
+            incremental_states = empty(len(state_indices))
+        else:
+            incremental_states = {}
+            
+        current_states = self.get_current_states()
+        current_setpoints = self.get_current_setpoints()
+                    
+        for state, index in self._get_state_indices_sorted_by_index():
+            try:
+                incremental_state_func = getattr(self, '_%s_incremental_model' % (state))
+            except AttributeError:
+                raise AttributeError('Could not get method that defines the incremental %s state of the %s model' % (state, self.model_type["full_name"]))
+            
+            if as_dictionary is False:
+                incremental_states[index] = incremental_state_func(V, theta, 
+                                                                   current_states=current_states,
+                                                                   current_setpoints=current_setpoints)
+            else:
+                incremental_states[state] = incremental_state_func(V, theta, 
+                                                                   current_states=current_states,
+                                                                   current_setpoints=current_setpoints)
+
+        return incremental_states
         
     
     def parse_state_vector(self, states, as_dictionary=False):
@@ -83,51 +157,56 @@ class GeneratorModel(object):
                 return_val[state] = states[index]
         
         return return_val
-
-
-    def initialize_states(self, initial_values):
-        if type(initial_values) is not dict:
-            initial_values = self.parse_state_vector(initial_values, as_dictionary=True)
-        for state, initial_value in initial_values.iteritems():
-            set_initial_conditions(self, state, initial_value)
-            
-        return self.get_current_states()
-
-    
-    def update_states(self, new_states):
-        if type(new_states) is not dict:
-            new_states = self.parse_state_vector(new_states, as_dictionary=True)
-        for state, new_state in new_states.iteritems():
-            setattr(self, state, append(getattr(self, state), new_state))
-            
-        return self.get_current_states()
         
-    
+
     def _get_state_indices_sorted_by_index(self):
-        return sorted(self.state_indicies.iteritems(), key=itemgetter(1))
+        try:
+            return sorted(self.state_indicies.iteritems(), key=itemgetter(1))
+        except AttributeError:
+            raise AttributeError('The %s model does not have a state indices dictionary.' % self.model_type['full_name'])
         
     
-    def get_incremental_states(self, Pout, as_dictionary=False):
-        try:
-            state_indices = self.state_indices
-        except AttributeError:
-            raise AttributeError('No state indices provided, cannot get incremental states')
-            
-        if as_dictionary is False:
-            incremental_states = empty(len(state_indices))
-        else:
-            incremental_states = {}
-            
-        for state, index in self._get_state_indices_sorted_by_index():
+    def get_current_setpoints(self, as_dictionary=False):
+        setpoints = empty(len(self.setpoint_indicies))
+        for setpoint, index in self._get_setpoint_indices_sorted_by_index():
             try:
-                incremental_state_func = getattr(self, '_%s_incremental_model')
+                setpoints[index] = getattr(self, setpoint)[-1]
             except AttributeError:
-                raise AttributeError('Could not get incremental model for %s state' % state)
+                print 'could not find index for setpoint "%s".' % setpoint
+                setpoints[index] = nan
+        if as_dictionary is True:
+            return self.parse_setpoint_vector(setpoints, as_dictionary=True)
+        else:
+            return setpoints
             
-            if as_dictionary is False:
-                incremental_states[index] = incremental_state_func()
-            else:
-                incremental_states[state] = incremental_state_func()
+            
+    def update_setpoints(self, new_setpoints):
+        if type(new_setpoints) is not dict:
+            new_setpoints = self.parse_state_vector(new_setpoints, as_dictionary=True)
+        for setpoint, new_value in new_setpoints.iteritems():
+            setattr(self, state, append(getattr(self, setpoint), new_value))
+            
+        return self.get_current_setpoints()
 
-        return incremental_states
+        
+    def parse_setpoint_vector(self, setpoints, as_dictionary=False):
+        if as_dictionary is False:
+            return_val = ()
+        else:
+            return_val = {}
+        # sorting according to index (the value in the setpoint_indices dictionary) so they come out in the order expected
+        for setpoint, index in self._get_setpoint_indices_sorted_by_index():
+            if as_dictionary is False:
+                return_val += (setpoints[index],)
+            else:
+                return_val[setpoint] = setpoints[index]
+        
+        return return_val
+        
+    
+    def _get_setpoint_indices_sorted_by_index(self):
+        try:
+            return sorted(self.setpoint_indicies.iteritems(), key=itemgetter(1))
+        except AttributeError:
+            raise AttributeError('The %s model does not have a setpoint indices dictionary.' % self.model_type['full_name'])
  

@@ -88,6 +88,14 @@ class Node(object):
 
     def get_current_node_voltage_angle(self):
         return self.theta[-1]
+        
+    
+    def _voltage_helper(self, V=None, theta=None):
+        if V is None:
+            V = self.get_current_node_voltage_magnitude()
+        if theta is None:
+            theta = self.get_current_node_voltage_angle()
+        return V, theta
 
 
     def get_id(self):
