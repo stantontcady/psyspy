@@ -19,7 +19,7 @@ class ConstantPowerLoad(Load):
             Q = 0
         self.Q = Q
         
-        self._node_type = 'ConstantPowerLoad'
+        self._node_type = 'constant_power_load'
 
         
     def __repr__(self):
@@ -46,3 +46,8 @@ class ConstantPowerLoad(Load):
             object_info.extend(['%s%s' % (''.rjust(2*indent_level_increment), parameter) for parameter in parameters])
             
         return object_info
+
+    
+    def get_real_and_reactive_power(self):
+        return self.P, self.Q
+    

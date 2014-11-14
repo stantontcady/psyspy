@@ -2,7 +2,7 @@ from itertools import count
 
 from numpy import append
 
-from .bus import Bus
+from ..bus import Bus
 from model_components import set_initial_conditions
 
 
@@ -17,7 +17,7 @@ class PVBus(Bus):
         set_initial_conditions(self, 'P', P)
         set_initial_conditions(self, 'Q')
         
-        self._node_type = 'PVBus'
+        self._node_type = 'pv_bus'
 
             
     def __repr__(self):

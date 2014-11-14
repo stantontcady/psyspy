@@ -11,11 +11,22 @@ class Bus(Node):
     
     def __init__(self, nodes=None, V0=None, theta0=None, shunt_z=(), shunt_y=()):
         
+        if (V0 is None or theta0 is None) and nodes is not None:
+            if type(nodes) is not list:
+                node_V0, node_theta0 = nodes.get_current_node_voltage()
+            else:
+                node_V0, node_theta0 = nodes[0].get_current_node_voltage()
+            if V0 is None:
+                V0 = node_V0
+            if theta0 is None:
+                theta0 = node_theta0
+
+        
         Node.__init__(self, V0, theta0)
         
         self._bus_id = self._bus_ids.next() + 1
         
-        self._bus_type = 'Bus'
+        self._node_type = 'bus'
         
         self.child_nodes = []
         
@@ -166,24 +177,34 @@ class Bus(Node):
             node.theta = self.theta
         
 
-    def has_generator_attached(self):
-        if self.get_node_type() == 'PVBus':
+    def is_pv_bus(self):
+        if self.get_node_type() == 'pv_bus':
             return True
+        # for node in self.child_nodes:
+        #     node_type = node.get_node_type()
+        #     if node_type == 'DGR' or node_type == 'SynchronousDGR':
+        #         return True
+        return False
+
+        
+    def has_dynamic_generator(self):
         for node in self.child_nodes:
             node_type = node.get_node_type()
-            if node_type == 'DGR' or node_type == 'SynchronousDGR':
+            print node_type
+            if node_type == 'synchronous_dgr':
                 return True
+                
         return False
 
         
     def get_specified_real_reactive_power(self):
         P = 0
         Q = 0
-        if self._node_type == 'PVBus':
+        if self._node_type == 'pv_bus':
             PVp, _ = self.get_current_real_reactive_power()
             P += PVp
         for node in self.child_nodes:
-            if node._node_type == 'ConstantPowerLoad':
+            if node._node_type == 'constant_power_load':
                 P -= node.P
                 Q -= node.Q
                 

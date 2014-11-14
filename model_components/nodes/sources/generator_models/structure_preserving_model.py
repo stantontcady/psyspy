@@ -18,7 +18,7 @@ class StructurePreservingModel(GeneratorModel):
                  R=None,
                  X=None,
                  E=None,
-                 u0=None):
+                 u=None):
                  
         self.model_type = {
             'simple_name':'structure_preserving',
@@ -53,7 +53,7 @@ class StructurePreservingModel(GeneratorModel):
         GeneratorModel.__init__(self, arg_values)
         
         # generator set-point
-        set_initial_conditions(self, 'u', u0)
+        set_initial_conditions(self, 'u', u)
 
         
     def repr_helper(self, simple=False, indent_level_increment=2):

@@ -273,7 +273,7 @@ class PowerNetwork(object):
         slack_bus_id = None
         for bus in self.buses:
             bus_id = bus.get_id()
-            if bus.has_generator_attached() is True and slack_bus_id is None:
+            if bus.is_pv_bus() is True and slack_bus_id is None:
                 slack_bus_id = bus_id
                 break
 
@@ -329,7 +329,7 @@ class PowerNetwork(object):
                 continue
             V, theta = bus.get_current_node_voltage()
             voltage_vector = append(voltage_vector, [theta])
-            if bus.has_generator_attached() is False:
+            if bus.is_pv_bus() is False:
                 voltage_vector = append(voltage_vector, [V])
 
         return voltage_vector
@@ -342,7 +342,7 @@ class PowerNetwork(object):
             if self.is_slack_bus(bus) is True:
                 continue
             theta = new_voltage_vector[i]
-            if bus.has_generator_attached() is False:
+            if bus.is_pv_bus() is False:
                 V = new_voltage_vector[i+1]
                 if append is False:
                     bus.replace_voltage(V, theta)
@@ -360,7 +360,7 @@ class PowerNetwork(object):
     
     def reset_voltages_to_flat_profile(self):
         for bus in self.buses:
-            if(bus.has_generator_attached() is False):
+            if(bus.is_pv_bus() is False):
                 bus.reset_voltage_to_unity_magnitude_zero_angle()
             else:
                 if self.is_slack_bus(bus) is False:
@@ -376,7 +376,7 @@ class PowerNetwork(object):
                 continue
             fp, fq = self._fp_fq_helper(bus)
             function_vector = append(function_vector, fp)
-            if bus.has_generator_attached() is False:
+            if bus.is_pv_bus() is False:
                 function_vector = append(function_vector, fq)
         
         return function_vector
@@ -391,7 +391,7 @@ class PowerNetwork(object):
         
         fp = Gii*Vi
 
-        if bus.has_generator_attached() is False:
+        if bus.is_pv_bus() is False:
             fq = Bii*Vi
         else:
             fq = 0
@@ -401,10 +401,10 @@ class PowerNetwork(object):
             Vk, thetak = bus_k.get_current_node_voltage()
             Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
             fp += Vk*(Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak))
-            if bus.has_generator_attached() is False:
+            if bus.is_pv_bus() is False:
                 fq += Vk*(Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak))
         fp = fp*Vi - Pnet
-        if bus.has_generator_attached() is False:
+        if bus.is_pv_bus() is False:
             fq = fq*Vi - Qnet
         
         return fp, fq
@@ -427,7 +427,7 @@ class PowerNetwork(object):
             bus_i = self.get_bus_by_id(bus_id_i)
             connected_bus_ids = self.get_all_connected_bus_ids_by_id(bus_id_i)
             Vi_polar = bus_i.get_current_node_voltage()
-            bus_i_has_generator = bus_i.has_generator_attached()
+            bus_i_has_generator = bus_i.is_pv_bus()
             j = 0
             while j < n:
                 if i == j:
@@ -448,7 +448,7 @@ class PowerNetwork(object):
                         if bus_i_has_generator is False:
                             J[i+1, j] = self._jacobian_kij_helper(Vi_polar, Vj_polar, Gij, Bij)
 
-                        if bus_j.has_generator_attached() is False:
+                        if bus_j.is_pv_bus() is False:
                             if bus_i_has_generator is False:
                                 J[i+1, j+1] = self._jacobian_lij_helper(Vi_polar, Vj_polar, Gij, Bij, J[i, j])
                                 Kij = J[i+1, j]
@@ -478,7 +478,7 @@ class PowerNetwork(object):
         diag_elements = [Hii]
         jacobian_indices = [bus_id]
 
-        if bus.has_generator_attached() is False:
+        if bus.is_pv_bus() is False:
             diag_elements.append(self._jacobian_lii_helper(bus_id, Vi_polar, connected_bus_ids, Hii))
             jacobian_indices.append(bus_id)
             
@@ -649,7 +649,19 @@ class PowerNetwork(object):
         Pij = -Gij*Vi**2 + Vi*Vj*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
         Qij = -Bij*Vi**2 + Vi*Vj*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
         return Pij, Qij
+        
+    
+    # def initialize_dynamic_states(self):
+    #     for bus in self.buses:
+    #         if bus.has_dynamic_generator():
+    #             print 'here'
+    #             initial_states = bus.initialize_states()
+    #             print initial_states
 
 
-    def solve_dae(self, power_flow_tolerance=0.00001):
-        pass
+    # def dynamic_simulation(self, simulation_time, time_step=0.0001, power_flow_tolerance=0.00001):
+    #     num_steps = int(float(simulation_time)/time_step+1)
+    #     # do power flow with slack bus
+    #     # get initial dynamic states
+    #     self.initialize_dynamic_states()
+    #     pass

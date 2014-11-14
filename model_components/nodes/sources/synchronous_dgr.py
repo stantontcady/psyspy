@@ -19,7 +19,7 @@ class SynchronousDGR(DGR):
                  V0=None,
                  theta0=None,
                  parameters={},
-                 initial_states={}):
+                 initial_setpoints={}):
                  
         DGR.__init__(self, V0, theta0)
         
@@ -28,14 +28,14 @@ class SynchronousDGR(DGR):
         # concatenate the parameter and initial state dictionaries into one so that they can be passed to the
         # generator model as keyword arguments
         model_kwargs = dict(**parameters)
-        model_kwargs.update(initial_states)
+        model_kwargs.update(initial_setpoints)
         
         if model == 'classical':
             self.generator_model = ClassicalModel()
         elif model == 'structure_preserving':
             self.generator_model = StructurePreservingModel(**model_kwargs)
             
-        self._node_type = 'SynchronousDGR'
+        self._node_type = 'synchronous_dgr'
         
         self.model_functions =  [
             "set_model_parameters",
