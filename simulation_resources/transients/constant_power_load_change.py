@@ -31,6 +31,39 @@ class TemporaryConstantPowerLoadChange(TemporaryLoadChange):
         self.new_P = new_P
         self.new_Q = new_Q
         
+        self.old_P = old_P
+        self.old_Q = old_Q
+        
         self._temporary_constant_power_load_change_id = self._temporary_constant_power_load_change_ids.next() + 1
         
         self._change_type = 'temporary_constant_power_load_change'
+        
+
+    def toggle_change(self):
+        if self.enabled is True:
+            if self.active is False:
+                self.activate()
+                self.active = True
+            else:
+                self.deactivate()
+                self.active = False
+
+
+    def activate(self):
+         if self.enabled is True:
+            if self.new_P is not None:
+                _ = self.affected_node.change_real_power(self.new_P)
+            if self.new_Q is not None:
+                _ = self.affected_node.change_reactive_power(self.new_Q)
+            self.active = True
+            print 'Activated'
+    
+    
+    def deactivate(self):
+        if self.enabled is True:
+            if self.old_P is not None:
+                _ = self.affected_node.change_real_power(self.old_P)
+            if self.old_Q is not None:
+                _ = self.affected_node.change_reactive_power(self.old_Q)
+            self.active = False
+            print 'Deactivated'

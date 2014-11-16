@@ -112,7 +112,7 @@ class GeneratorModel(object):
         return self.get_current_states()
         
 
-    def get_incremental_states(self, V, theta, as_dictionary=False):
+    def get_incremental_states(self, V, theta, current_states=None, current_setpoints=None, as_dictionary=False):
         try:
             state_indices = self.state_indicies
         except AttributeError:
@@ -122,9 +122,11 @@ class GeneratorModel(object):
             incremental_states = empty(len(state_indices))
         else:
             incremental_states = {}
-            
-        current_states = self.get_current_states()
-        current_setpoints = self.get_current_setpoints()
+        
+        if current_states is None:
+            current_states = self.get_current_states()
+        if current_setpoints is None:
+            current_setpoints = self.get_current_setpoints()
                     
         for state, index in self._get_state_indices_sorted_by_index():
             try:

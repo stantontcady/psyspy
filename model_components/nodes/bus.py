@@ -80,6 +80,14 @@ class Bus(Node):
 
     def get_bus_id(self):
         return self._bus_id
+        
+        
+    def get_node_by_id(self, node_id):
+        for child_node in self.child_nodes:
+            if child_node.get_id() == node_id:
+                return child_node
+        
+        return None
 
 
     def add_child_node(self, node):
@@ -96,7 +104,8 @@ class Bus(Node):
         node.set_initial_node_voltage(self.V[0], self.theta[0])
     
         self.child_nodes.append(node)
-    
+
+
     def update_voltage(self, V, theta, replace=False, save_to_child_nodes=True):
         Vout = self.update_voltage_magnitude(V, replace=replace, save_to_child_nodes=save_to_child_nodes)
         thetaOut = self.update_voltage_angle(theta, replace=replace, save_to_child_nodes=save_to_child_nodes)
@@ -189,12 +198,28 @@ class Bus(Node):
         
     def has_dynamic_generator(self):
         for node in self.child_nodes:
-            node_type = node.get_node_type()
-            print node_type
-            if node_type == 'synchronous_dgr':
+            if node.get_node_type() == 'synchronous_dgr':
                 return True
                 
         return False
+        
+        
+    def identify_dynamic_generator_nodes(self):
+        self.dynamic_generator_node_ids = []
+        for node in self.child_nodes:
+            if node.get_node_type() == 'synchronous_dgr':
+                self.dynamic_generator_node_ids.append(node.get_id())
+                
+        return self.dynamic_generator_node_ids
+                
+    
+    def get_dynamic_generator_nodes(self):
+        try:
+            dynamic_generator_node_ids = self.dynamic_generator_node_ids
+        except AttributeError:
+            dynamic_generator_node_ids = self.identify_dynamic_generator_nodes()
+        
+        return [self.get_node_by_id(node_id) for node_id in dynamic_generator_node_ids]
 
         
     def get_specified_real_reactive_power(self):

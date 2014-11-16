@@ -78,9 +78,13 @@ class SynchronousDGR(DGR):
             raise AttributeError('The %s model does not have a method to initialize its states' % (self.generator_model.model_type['full_name']))
         
         return initialize_method(V, theta, overwrite_current_values=overwrite_current_values)
+        
+    
+    def get_current_states(self, as_dictionary=False):
+        return self.generator_model.get_current_states(as_dictionary=as_dictionary)
 
 
-    def get_incremental_states(self, V=None, theta=None, as_dictionary=False):
+    def get_incremental_states(self, V=None, theta=None, current_states=None, current_setpoints=None, as_dictionary=False):
         V, theta = self._voltage_helper(V, theta)
 
         if self._check_for_generator_model() is False:
@@ -88,9 +92,15 @@ class SynchronousDGR(DGR):
         
         incremental_method = self._check_for_generator_model_method('get_incremental_states')
         if incremental_method is False:
-            raise AttributeError('The %s model does not have a method to initialize its states' % (self.generator_model.model_type['full_name']))
+            raise AttributeError('The %s model does not have a method to get incremental states' % (self.generator_model.model_type['full_name']))
         
-        return incremental_method(V, theta, as_dictionary=as_dictionary)
+        return incremental_method(V, theta,
+                                  current_states=current_states, current_setpoints=current_setpoints,
+                                  as_dictionary=as_dictionary)
+
+
+    def update_states(self, new_states):
+        self.generator_model.update_states(new_states)
 
 
     def _check_for_generator_model(self):

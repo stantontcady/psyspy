@@ -651,12 +651,35 @@ class PowerNetwork(object):
         return Pij, Qij
         
     
-    # def initialize_dynamic_states(self):
-    #     for bus in self.buses:
-    #         if bus.has_dynamic_generator():
-    #             print 'here'
-    #             initial_states = bus.initialize_states()
-    #             print initial_states
+    def initialize_dynamic_states(self):
+        for dynamic_generator_bus in self.get_dynamic_generator_buses():
+            initial_states = dynamic_generator_bus.initialize_states()
+                
+    
+    def identify_dynamic_generator_buses(self):
+        self.dynamic_generator_bus_ids = []
+        for bus in self.buses:
+            if bus.has_dynamic_generator():
+                self.dynamic_generator_bus_ids.append(bus.get_id())
+                
+        return self.dynamic_generator_bus_ids
+                
+    
+    def get_dynamic_generator_buses(self):
+        try:
+            dynamic_generator_bus_ids = self.dynamic_generator_bus_ids
+        except AttributeError:
+            dynamic_generator_bus_ids = self.identify_dynamic_generator_buses()
+        
+        return [self.get_bus_by_id(bus_id) for bus_id in dynamic_generator_bus_ids]
+        
+
+    def get_dynamic_generator_nodes(self):
+        dynamic_generator_nodes = []
+        for dynamic_generator_bus in self.get_dynamic_generator_buses():
+            dynamic_generator_nodes.extend(dynamic_generator_bus.get_dynamic_generator_nodes())
+        
+        return dynamic_generator_nodes
 
 
     # def dynamic_simulation(self, simulation_time, time_step=0.0001, power_flow_tolerance=0.00001):

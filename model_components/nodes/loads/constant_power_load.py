@@ -49,5 +49,28 @@ class ConstantPowerLoad(Load):
 
     
     def get_real_and_reactive_power(self):
-        return self.P, self.Q
+        return self.get_real_power(), self.get_real_power()
+        
     
+    def change_real_and_reactive_power(self, new_P, new_Q):
+        P = self.change_real_power(new_P)
+        Q = self.change_reactive_power(new_Q)
+        return P, Q
+
+
+    def get_real_power(self):
+        return self.P
+        
+
+    def change_real_power(self, new_P):
+        self.P = new_P
+        return self.get_real_power()
+    
+    
+    def get_reactive_power(self):
+        return self.Q
+        
+
+    def change_reactive_power(self, new_Q):
+        self.Q = new_Q
+        return self.get_reactive_power()
