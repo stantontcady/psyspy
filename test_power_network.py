@@ -18,10 +18,10 @@ def create_wecc_9_bus_network():
     b2 = PVBus(P=1.63, V=1.025)
     b3 = PVBus(P=0.85, V=1.025)
     b4 = Bus(shunt_y=(0, 0.5*0.176 + 0.5*0.158))
-    b5 = Bus(nodes=la, shunt_y=(0, 0.5*0.176 + 0.5*0.306))
-    b6 = Bus(nodes=lb, shunt_y=(0, 0.5*0.158 + 0.5*0.358))
+    b5 = Bus(loads=la, shunt_y=(0, 0.5*0.176 + 0.5*0.306))
+    b6 = Bus(loads=lb, shunt_y=(0, 0.5*0.158 + 0.5*0.358))
     b7 = Bus(shunt_y=(0, 0.5*0.306 + 0.5*0.149))
-    b8 = Bus(nodes=lc, shunt_y=(0, 0.5*0.149 + 0.5*0.209))
+    b8 = Bus(loads=lc, shunt_y=(0, 0.5*0.149 + 0.5*0.209))
     b9 = Bus(shunt_y=(0, 0.5*0.358 + 0.5*0.209))
 
     n = PowerNetwork(buses=[b1, b2, b3, b4, b5, b6, b7, b8, b9])
@@ -46,7 +46,7 @@ class TestPowerNetwork(unittest.TestCase):
         def series_of_tests(object_to_test):
             def assert_voltage_equal(expected_voltage, actual_voltage=None):
                 if actual_voltage is None:
-                    actual_voltage_magnitude, actual_voltage_angle = object_to_test.get_current_node_voltage()
+                    actual_voltage_magnitude, actual_voltage_angle = object_to_test.get_current_voltage()
                 
                 expected_voltage_magnitude, expected_voltage_angle = expected_voltage
                 
@@ -58,11 +58,11 @@ class TestPowerNetwork(unittest.TestCase):
             assert_voltage_equal(expected_test_voltage)
             
             expected_test_voltage = (1.2, 0.1)
-            _, _ = object_to_test.replace_node_voltage(1.2, 0.1)
+            _, _ = object_to_test.replace_voltage(1.2, 0.1)
             assert_voltage_equal(expected_test_voltage)
             
             expected_test_voltage = (1.1, 0.053)
-            _, _ = object_to_test.append_node_voltage(1.1, 0.053)
+            _, _ = object_to_test.append_voltage(1.1, 0.053)
             assert_voltage_equal(expected_test_voltage)
         
         node = Node()
@@ -77,7 +77,7 @@ class TestPowerNetwork(unittest.TestCase):
         bus = Bus()
         
         # initial conditions should be V=1, theta=0
-        actual_voltage_magnitude, actual_voltage_angle = bus.get_current_node_voltage()
+        actual_voltage_magnitude, actual_voltage_angle = bus.get_current_voltage()
         expected_voltage_magnitude = 1
         expected_voltage_angle = 0
         self.assertEqual(expected_voltage_magnitude, actual_voltage_magnitude)

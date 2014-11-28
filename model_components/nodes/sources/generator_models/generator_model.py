@@ -1,5 +1,5 @@
 from operator import itemgetter
-from numpy import append, empty, nan
+from numpy import append, array, empty, nan
 
 from model_components import set_initial_conditions, set_parameter_value
 
@@ -19,6 +19,10 @@ class GeneratorModel(object):
         
         for state, _ in self._get_state_indices_sorted_by_index():
             set_initial_conditions(self, state, nan)
+            
+        self.reference_angle = None
+        self.reference_angular_velocity = None
+
             
     def __repr__(self):
         try:
@@ -51,7 +55,7 @@ class GeneratorModel(object):
         return parameter_dict
         
 
-    def initialize_states(self, V, theta, overwrite_current_values=True):
+    def initialize_states(self, V, theta, Pnetwork, Qnetwork, overwrite_current_values=True):
         if overwrite_current_values is not True:
             initial_values = empty(len(self.state_indicies))
         
@@ -64,9 +68,9 @@ class GeneratorModel(object):
                 raise AttributeError('Could not get method that defines the initial value of the %s state of the %s model' % (state, self.model_type["full_name"].lower()))
                 
             if overwrite_current_values is not True:
-                initial_values[index] = initial_value_func(V, theta, current_setpoints)
+                initial_values[index] = initial_value_func(V, theta, Pnetwork, Qnetwork, current_setpoints)
             else:
-                set_initial_conditions(self, state, initial_value_func(V, theta, current_setpoints))
+                set_initial_conditions(self, state, initial_value_func(V, theta, Pnetwork, Qnetwork, current_setpoints))
             
         
         if overwrite_current_values is True:
@@ -206,9 +210,26 @@ class GeneratorModel(object):
         return return_val
         
     
+    def shift_initial_torque_angle(self, angle_to_shift):
+        if len(self.d) > 1:
+            print 'Cannot shift angle, size of angle array is larger than 1'
+            return False
+        current_angle = self.d[0]
+        self.d = array([current_angle - angle_to_shift])
+        return self.d[0]
+
+
     def _get_setpoint_indices_sorted_by_index(self):
         try:
             return sorted(self.setpoint_indicies.iteritems(), key=itemgetter(1))
         except AttributeError:
             raise AttributeError('The %s model does not have a setpoint indices dictionary.' % self.model_type['full_name'])
+    
+
+    def set_reference_angle(self, reference_angle):
+        self.reference_angle = reference_angle
+
+
+    def set_reference_angular_velocity(self, reference_angular_velocity):
+        self.reference_angular_velocity = reference_angular_velocity
  

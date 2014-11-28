@@ -3,4 +3,4 @@ from node import Node
 
 from loads import ConstantPowerLoad, Load, PassiveLoad
 
-from sources import DGR, SynchronousDGR, PVBus
+from sources import DGR, PVBus, SynchronousDGR

@@ -10,7 +10,7 @@ class PVBus(Bus):
     _pv_bus_ids = count(0)
     
     def __init__(self, P=None, V=None, theta0=None, shunt_z=(), shunt_y=()):
-        Bus.__init__(self, None, V, theta0, shunt_z, shunt_y)
+        Bus.__init__(self, dgr=None, loads=None, V0=V, theta0=theta0, shunt_z=shunt_z, shunt_y=shunt_y)
         
         self._pv_bus_id = self._pv_bus_ids.next() + 1
         
@@ -28,7 +28,7 @@ class PVBus(Bus):
         object_info = ['<PV Bus, Node #%i>' % (self.get_id())]
         
         current_states = []
-        V, theta = self.get_current_node_voltage()
+        V, theta = self.get_current_voltage()
         current_states.append('Magnitude, V: %0.3f pu' % (V))
         current_states.append('Angle, %s : %0.4f rad' % (u'\u03B8'.encode('UTF-8'), theta))
         
@@ -42,15 +42,6 @@ class PVBus(Bus):
                 object_info.append('%sConductance: %0.3f' % (''.rjust(2*indent_level_increment), self.shunt_y[0]))
             if self.shunt_y[1] != 0:
                 object_info.append('%sSusceptance: %0.3f' % (''.rjust(2*indent_level_increment), self.shunt_y[1]))
-        
-        if self.child_nodes != []:    
-            object_info.append('%sConnected nodes:' % (''.rjust(indent_level_increment)))
-        else:
-            object_info.append('%sNo nodes connected!' % (''.rjust(indent_level_increment)))
-        
-        for node in self.child_nodes:
-            object_info.extend(['%s%s' % (''.rjust(2*indent_level_increment), line)
-                                for line in node.repr_helper(simple=True, indent_level_increment=indent_level_increment)])
         
         return object_info
 
