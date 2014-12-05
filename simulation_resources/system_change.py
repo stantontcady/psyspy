@@ -17,7 +17,7 @@ class SystemChange(object):
         
         self.enabled = True
         self.active = False
-        self.admittance_matrix_change = False
+        self.admittance_matrix_change = None
 
 
     def get_change_type(self):
@@ -36,3 +36,12 @@ class SystemChange(object):
             else:
                 self.deactivate()
                 self.active = False
+                
+    def admittance_matrix_recompute_required(self):
+        # checking if True or False to ensure correct type of system change property
+        if self.admittance_matrix_change is True:
+            return True
+        elif self.admittance_matrix_change is False:
+            return False
+        else:
+            raise ValueError('Requirement of admittance matrix recomputation is unknown')

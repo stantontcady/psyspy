@@ -1,3 +1,2 @@
-from permanents import PermanentConstantPowerLoadChange
+from load_changes import PermanentConstantPowerLoadChange, TemporaryConstantPowerLoadChange
 from simulation_routine import SimulationRoutine
-from transients import TemporaryConstantPowerLoadChange

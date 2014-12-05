@@ -47,25 +47,29 @@ class SimulationRoutine(object):
 
 
     def check_system_change_active(self, system_change):
+        admittance_matrix_recompute_required = False
+        
         if ((self.current_time >= system_change.start_time) and 
            ((self.current_time <= system_change.end_time) or system_change.end_time is None)):
             if system_change.active is False:
                 system_change.activate()
-                return True
+                admittance_matrix_recompute_required = system_change.admittance_matrix_recompute_required()
         else:
             if system_change.active is True:
                 system_change.deactivate()
-                return True
-        return False
+                admittance_matrix_recompute_required = system_change.admittance_matrix_recompute_required()
+
+        return admittance_matrix_recompute_required
             
     
     def check_all_system_changes_active(self):
-        system_change_toggled = False
+        admittance_matrix_recompute_required = False
+        
         for system_change in self.system_changes:
             if self.check_system_change_active(system_change) is True:
-                system_change_toggled = True
+                admittance_matrix_recompute_required = True
         
-        return system_change_toggled
+        return admittance_matrix_recompute_required
             
             
     def run_simulation(self):
@@ -102,9 +106,9 @@ class SimulationRoutine(object):
         
 
         for k in range(0, self.num_simulation_steps):
-
             self.time_vector[k] = self.current_time
-            if self.check_all_system_changes_active() is True:
+            admittance_matrix_recompute_required = self.check_all_system_changes_active()
+            if admittance_matrix_recompute_required is True:
             #     # this function forces a recomputation of the admittance matrix which may be necessary to account for change
             #     # TO DO: add field to system change objects to identify if this step is needed for the type of change activated / deactivated
                 _, _ = self.network.save_admittance_matrix()

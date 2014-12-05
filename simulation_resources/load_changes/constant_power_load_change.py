@@ -1,28 +1,21 @@
 from itertools import count
 
-from .permanent_load_change import PermanentLoadChange
+from .load_change import LoadChange
 
 
-class PermanentConstantPowerLoadChange(PermanentLoadChange):
-    _permanent_constant_power_load_change_ids = count(0)
+class ConstantPowerLoadChange(LoadChange):
+    _constant_power_load_change_ids = count(0)
     
-    def __init__(self, start_time, affected_load, new_P=None, new_Q=None):
+    def __init__(self, affected_load, start_time, end_time=None, new_P=None, new_Q=None):
         
         # check for constant power load change specific errors before calling super class init
         if new_P is None and new_Q is None:
             raise StandardError('A new real or reactive power must be specified for constant power load change')
             
-        # the load change class expects an object of type node, not bus, but it may be possible to extract the node from the bus if there's only one node attached to the bus
-        if affected_load.get_node_type() == 'bus':
-            connected_loads = affected_load.get_connected_loads()
-            if len(connected_loads) == 1:
-                # if node passed in is actually a bus but it only has one load, change affected target
-                affected_load = connected_loads[0]
-            
-        if affected_load.get_node_type() != 'constant_power_load':
+        LoadChange.__init__(self, affected_load, start_time, end_time)
+        
+        if self.affected_load.get_node_type() != 'constant_power_load':
             raise TypeError('Node type must be constant power load')
-            
-        PermanentLoadChange.__init__(self, start_time, affected_load=affected_load)
             
         old_P, old_Q = self.affected_load.get_real_and_reactive_power()
         
@@ -36,9 +29,11 @@ class PermanentConstantPowerLoadChange(PermanentLoadChange):
         self.old_P = old_P
         self.old_Q = old_Q
         
-        self._permanent_constant_power_load_change_id = self._permanent_constant_power_load_change_ids.next() + 1
+        self._constant_power_load_change_id = self._constant_power_load_change_ids.next() + 1
         
-        self._change_type = 'permanent_constant_power_load_change'
+        self._change_type = 'constant_power_load_change'
+        
+        self.admittance_matrix_change = False
 
 
     def activate(self):

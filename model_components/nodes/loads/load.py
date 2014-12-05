@@ -10,3 +10,5 @@ class Load(Node):
         Node.__init__(self, V0, theta0)
         
         self._load_id = self._load_ids.next() + 1
+        
+        self._node_type = 'load'

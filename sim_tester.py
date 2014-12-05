@@ -62,7 +62,7 @@ c2 = PermanentConstantPowerLoadChange(start_time=1.5, affected_load=lb, new_P=1.
 # c2 = TemporaryConstantPowerLoadChange(start_time=1.5, end_time=10.1, affected_node=lb, new_P=1.25)
 
 
-sim = SimulationRoutine(n, 3, [c2], time_step=0.01)
+sim = SimulationRoutine(n, 5, [c2], time_step=0.01)
 sim.run_simulation()
 # embed()
 
