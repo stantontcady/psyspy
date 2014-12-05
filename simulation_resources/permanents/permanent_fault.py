@@ -1,6 +1,7 @@
+from itertools import count
 
+from ..system_change import SystemChange
 
-from .system_change import SystemChange
 
 class PermanentFault(SystemChange):
     _permanent_fault_ids = count(0)

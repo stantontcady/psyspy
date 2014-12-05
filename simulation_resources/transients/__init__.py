@@ -1,1 +1,1 @@
-from constant_power_load_change import TemporaryConstantPowerLoadChange
+from temporary_constant_power_load_change import TemporaryConstantPowerLoadChange

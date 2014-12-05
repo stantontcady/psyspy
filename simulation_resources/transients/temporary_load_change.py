@@ -6,7 +6,7 @@ from .transient import Transient
 class TemporaryLoadChange(Transient):
     _temporary_load_change_ids = count(0)
     
-    def __init__(self, start_time, end_time, affected_node):
+    def __init__(self, start_time, end_time, affected_load):
         
         Transient.__init__(self, start_time, end_time)
         
@@ -14,4 +14,4 @@ class TemporaryLoadChange(Transient):
         
         self._change_type = 'temporary_load_change'
         
-        self.affected_node = affected_node
+        self.affected_load = affected_load

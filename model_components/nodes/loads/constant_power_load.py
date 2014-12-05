@@ -32,7 +32,7 @@ class ConstantPowerLoad(Load):
         parameters = []
         
         if simple is False:
-            V, theta = self.get_current_node_voltage()
+            V, theta = self.get_current_voltage()
             current_states.append('Voltage magnitude, V: %0.3f pu' % (V))
             current_states.append('Voltage angle, %s : %0.4f rad' % (u'\u03B8'.encode('UTF-8'), theta))
             

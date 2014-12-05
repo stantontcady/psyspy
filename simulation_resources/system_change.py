@@ -17,10 +17,22 @@ class SystemChange(object):
         
         self.enabled = True
         self.active = False
-        
+        self.admittance_matrix_change = False
+
 
     def get_change_type(self):
         return self._change_type
-        
+
+
     def get_change_id(self):
         return self._system_change_id
+
+
+    def toggle_change(self):
+        if self.enabled is True:
+            if self.active is False:
+                self.activate()
+                self.active = True
+            else:
+                self.deactivate()
+                self.active = False

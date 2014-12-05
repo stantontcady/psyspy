@@ -108,10 +108,10 @@ class Bus(Node):
         return self._bus_id
         
         
-    def get_node_by_id(self, node_id):
-        for child_node in self.child_nodes:
-            if child_node.get_id() == node_id:
-                return child_node
+    def get_load_by_node_id(self, node_id):
+        for load in self.get_connected_loads():
+            if load.get_id() == node_id:
+                return load
         
         return None
         
@@ -124,11 +124,7 @@ class Bus(Node):
 
 
     def add_load(self, load):
-        # add a loads array property to this instance if none exists yet
-        try:
-            self.loads
-        except:
-            self.loads = []
+        loads = self.get_connected_loads()
             
         load_V0, load_theta0 = load.get_initial_voltage()
         bus_V0, bus_theta0 = self.get_initial_voltage()
@@ -144,8 +140,20 @@ class Bus(Node):
             info('Overwriting initial voltage angle of load (node %i) to match bus.' % (load.get_id()))
             
         self.copy_bus_voltage_to_child(load)
+        
+        if loads == []:
+            self.loads = [load]
+        else:
+            self.loads.append(load)
+        
     
-        self.loads.append(load)
+    def get_connected_loads(self):
+        try:
+            loads = self.loads
+        except AttributeError:
+            loads = []
+        
+        return loads
 
 
     def update_voltage(self, V, theta, replace=False, copy_to_child_nodes=True):

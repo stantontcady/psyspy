@@ -387,10 +387,7 @@ class PowerNetwork(object):
             bus = self.get_bus_by_id(bus_id)
             if self.is_slack_bus(bus) is True:
                 continue
-                
-            # if self.is_voltage_angle_reference_bus_by_id(bus_id) is True:
-                # if this is the voltage angle reference bus we only want to update the voltage magnitude
-                # bus.update_voltage_magnitude(new_voltage_vector[i], replace=replace)
+
             if bus.is_pv_bus() is True:
                 # if this is a pv bus we only want to update the voltage angle
                 bus.update_voltage_angle(new_voltage_vector[i], replace=replace)
@@ -439,11 +436,6 @@ class PowerNetwork(object):
         fp = P_network - P_net
         Q_network = self.compute_reactive_power_injected_from_network(None, bus_id_i, Vi_polar, Bii, connected_bus_ids)
         fq = Q_network - Q_net
-        # if bus_i.is_pv_bus() is False:
-        #     Q_network = self.compute_reactive_power_injected_from_network(None, bus_id_i, Vi_polar, Bii, connected_bus_ids)
-        #     fq = Q_network - Q_net
-        # else:
-        #     fq = 0
             
         return fp, fq
 
@@ -531,100 +523,6 @@ class PowerNetwork(object):
         return diag_elements, jacobian_indices
 
 
-    # def _generate_jacobian_matrix(self):
-    #     admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
-    #     slack_bus_id = self.get_slack_bus_id()
-    #
-    #     J, list_of_bus_id_lists = frompyfunc(self._jacobian_diagonal_helper, 1, 2)(admittance_matrix_index_bus_id_mapping)
-    #     J = diags(hstack(J), 0, format='lil')
-    #
-    #     jacobian_matrix_index_bus_id_mapping = [int(bus_id) for bus_id in hstack(list_of_bus_id_lists).tolist() if bus_id is not None]
-    #
-    #     n = len(jacobian_matrix_index_bus_id_mapping)
-    #
-    #     i = 0
-    #     while i < n:
-    #         bus_id_i = jacobian_matrix_index_bus_id_mapping[i]
-    #         bus_i = self.get_bus_by_id(bus_id_i)
-    #         connected_bus_ids = self.get_all_connected_bus_ids_by_id(bus_id_i)
-    #         Vi_polar = bus_i.get_current_voltage()
-    #         bus_i_is_pv_bus = bus_i.is_pv_bus()
-    #         # bus_i_is_voltage_angle_reference_bus = self.is_voltage_angle_reference_bus_by_id(bus_id_i)
-    #         j = 0
-    #         while j < n:
-    #             if i == j:
-    #                 # pv buses and voltage angle reference bus have no block diagonal elements
-    #                 if bus_i_is_pv_bus is False and bus_i_is_voltage_angle_reference_bus is False:
-    #                     J[i+1, j] = self._jacobian_kii_helper(bus_id_i, Vi_polar, connected_bus_ids)
-    #                     J[i, j+1] = self._jacobian_nii_helper(bus_id_i, Vi_polar, connected_bus_ids, Kii=J[i+1, j])
-    #                     j += 1
-    #             else:
-    #                 bus_id_j = jacobian_matrix_index_bus_id_mapping[j]
-    #                 if bus_id_j in connected_bus_ids and self.is_slack_bus_by_id(bus_id_j) is False:
-    #                     Gij, Bij = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_j)
-    #                     bus_j = self.get_bus_by_id(bus_id_j)
-    #                     Vj_polar = bus_j.get_current_voltage()
-    #                     bus_j_is_voltage_angle_reference_bus = self.is_voltage_angle_reference_bus_by_id(bus_id_j)
-    #
-    #                     if bus_i_is_voltage_angle_reference_bus is False:
-    #                         if bus_j_is_voltage_angle_reference_bus is False:
-    #                             J[i, j] = self._jacobian_hij_helper(Vi_polar, Vj_polar, Gij, Bij)
-    #                         else:
-    #                             J[i, j] = self._jacobian_nij_helper(Vi_polar, Vj_polar, Gij, Bij)
-    #                     else:
-    #                         J[i, j] = self._jacobian_kij_helper(Vi_polar, Vj_polar, Gij, Bij)
-    #
-    #                     if bus_i_is_pv_bus is False and bus_i_is_voltage_angle_reference_bus is False:
-    #                         if bus_j_is_voltage_angle_reference_bus is False:
-    #                             J[i+1, j] = self._jacobian_kij_helper(Vi_polar, Vj_polar, Gij, Bij)
-    #                         else:
-    #                             J[i+1, j] = self._jacobian_lij_helper(Vi_polar, Vj_polar, Gij, Bij)
-    #
-    #                     if bus_j.is_pv_bus() is False and bus_j_is_voltage_angle_reference_bus is False:
-    #                         if bus_i_is_pv_bus is False:
-    #                             J[i+1, j+1] = self._jacobian_lij_helper(Vi_polar, Vj_polar, Gij, Bij, J[i, j])
-    #                             Kij = J[i+1, j]
-    #                         else:
-    #                             Kij = None
-    #                         if bus_i_is_voltage_angle_reference_bus is False:
-    #                             J[i, j+1] = self._jacobian_nij_helper(Vi_polar, Vj_polar, Gij, Bij, Kij)
-    #                         else:
-    #                             J[i, j+1] = self._jacobian_lij_helper(Vi_polar, Vj_polar, Gij, Bij)
-    #                         j += 1
-    #             j += 1
-    #
-    #         if bus_i_is_pv_bus is False and bus_i_is_voltage_angle_reference_bus is False:
-    #             i += 1
-    #         i += 1
-    #
-    #     return J
-    #
-    #
-    # def _jacobian_diagonal_helper(self, bus_id):
-    #     bus = self.get_bus_by_id(bus_id)
-    #     diag_elements = []
-    #     jacobian_indices = []
-    #
-    #     if self.is_slack_bus(bus) is True:
-    #         return diag_elements, jacobian_indices
-    #
-    #     Vi_polar = bus.get_current_voltage()
-    #     connected_bus_ids = self.get_all_connected_bus_ids_by_id(bus_id)
-    #
-    #     if self.is_voltage_angle_reference_bus_by_id(bus_id) is False:
-    #         Hii = self._jacobian_hii_helper(bus_id, Vi_polar, connected_bus_ids)
-    #         diag_elements.append(Hii)
-    #         jacobian_indices.append(bus_id)
-    #     else:
-    #         Hii = None
-    #
-    #     if bus.is_pv_bus() is False:
-    #         diag_elements.append(self._jacobian_lii_helper(bus_id, Vi_polar, connected_bus_ids, Hii))
-    #         jacobian_indices.append(bus_id)
-    #
-    #     return diag_elements, jacobian_indices
-        
-            
     def _jacobian_hij_helper(self, Vi_polar, Vj_polar, Gij, Bij, Lij=None):
         Vj, thetaj = Vj_polar
         if Lij is not None:
@@ -745,7 +643,7 @@ class PowerNetwork(object):
         return None
         
 
-    def solve_power_flow(self, tolerance=0.00001, optimal_ordering=True, append=True, once=False):
+    def solve_power_flow(self, tolerance=0.00001, optimal_ordering=True, append=True):
         # need to check if ordering has changed since admittance matrix was last generated
         if optimal_ordering != self.is_admittance_matrix_index_bus_id_mapping_optimal():
             self.save_admittance_matrix(optimal_ordering=optimal_ordering)
@@ -754,24 +652,21 @@ class PowerNetwork(object):
             x = self._get_current_voltage_vector()
             self._save_new_voltages_from_vector(x, replace=False)
         fx = self._generate_function_vector()
-        # print fx
+        k = 0
         while True:
-            # print fx
             J = csr_matrix(self._generate_jacobian_matrix())
-            # print cond(J.todense())
-            # print J.shape
-            if once is True:
-                embed()
+            if k > 100:
+                condition_number = cond(J.todense())
+                if condition_number > 50000:
+                    raise ValueError('system is likely unstable, Jacobian is ill-conditioned: %i' % condition_number)
             x = self._get_current_voltage_vector()
             x_next = x - spsolve(J, fx)
             self._save_new_voltages_from_vector(x_next)
             fx = self._generate_function_vector()
             error = norm(fx, inf)
-            # print error
             if error < tolerance:
                 break
-            if once is True:
-                break
+            k += 1
 
         self._compute_and_save_line_power_flows(append=append)
         
@@ -799,12 +694,8 @@ class PowerNetwork(object):
         Pij = -Gij*Vi**2 + Vi*Vj*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
         Qij = -Bij*Vi**2 + Vi*Vj*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
         return Pij, Qij
-        
-        
-    def _compute_and_save_pv_bus_reactive_power(self, append=True):
-        pass 
-        
-    
+
+
     def compute_reactive_power_injected_from_network(self,
                                                      bus_i=None,
                                                      bus_id_i=None,
@@ -883,19 +774,3 @@ class PowerNetwork(object):
             dynamic_dgr_bus_ids = self.identify_dynamic_dgr_buses()
         
         return [self.get_bus_by_id(bus_id) for bus_id in dynamic_dgr_bus_ids]
-
-
-    # def get_dynamic_generator_nodes(self):
-    #     dynamic_generator_nodes = []
-    #     for dynamic_generator_bus in self.get_dynamic_generator_buses():
-    #         dynamic_generator_nodes.extend(dynamic_generator_bus.get_dynamic_generator_nodes())
-    #
-    #     return dynamic_generator_nodes
-
-
-    # def dynamic_simulation(self, simulation_time, time_step=0.0001, power_flow_tolerance=0.00001):
-    #     num_steps = int(float(simulation_time)/time_step+1)
-    #     # do power flow with slack bus
-    #     # get initial dynamic states
-    #     self.initialize_dynamic_states()
-    #     pass

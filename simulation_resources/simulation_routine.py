@@ -20,12 +20,16 @@ class SimulationRoutine(object):
         
         self.numerical_method = RungeKutta45(time_step)
         
-        self.system_changes = []        
+        self.system_changes = [] 
         if system_changes is not None:
             if type(system_changes) is not list:
                 system_changes = [system_changes]
 
             for system_change in system_changes:
+                if system_change.end_time is not None:
+                    if system_change.end_time >= simulation_time:
+                        print 'Temporary system change does not revert to normal conditions before end of simulation'
+                        continue
                 self.add_system_change(system_change)
 
                 
@@ -43,7 +47,8 @@ class SimulationRoutine(object):
 
 
     def check_system_change_active(self, system_change):
-        if (self.current_time >= system_change.start_time) and (self.current_time <= system_change.end_time):
+        if ((self.current_time >= system_change.start_time) and 
+           ((self.current_time <= system_change.end_time) or system_change.end_time is None)):
             if system_change.active is False:
                 system_change.activate()
                 return True
@@ -71,13 +76,6 @@ class SimulationRoutine(object):
             # this is easily parallelizable
             dynamic_dgr_bus.make_temporary_pv_bus()
         _ = self.network.solve_power_flow(tolerance=self.power_flow_tolerance, append=False)
-        
-        # get / set reference bus / generator
-        # initialize states for generator of reference bus
-        # get reference generator delta
-        # to determine if (a) or (b) should be done first, test against steady state power balance
-        # a) initialize states for non reference generators (pass reference delta)
-        # b) shift initial thetas of all but reference bus
         
         
         # these can be parallelized
