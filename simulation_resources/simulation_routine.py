@@ -110,7 +110,6 @@ class SimulationRoutine(object):
             admittance_matrix_recompute_required = self.check_all_system_changes_active()
             if admittance_matrix_recompute_required is True:
             #     # this function forces a recomputation of the admittance matrix which may be necessary to account for change
-            #     # TO DO: add field to system change objects to identify if this step is needed for the type of change activated / deactivated
                 _, _ = self.network.save_admittance_matrix()
             self.current_time += self.time_step
             
@@ -120,19 +119,16 @@ class SimulationRoutine(object):
             # these can be parallelized
             for dynamic_dgr_bus in dynamic_dgr_buses:
                 if self.network.is_voltage_angle_reference_bus(dynamic_dgr_bus) is False:
-                    dynamic_dgr_bus.dgr.set_reference_angular_velocity(reference_speed)
-                    updated_states = self.get_nodal_state_update(dynamic_dgr_bus.dgr)
-                    dynamic_dgr_bus.dgr.update_states(updated_states)
+                    dgr = dynamic_dgr_bus.dgr
+                    dgr.set_reference_angular_velocity(reference_speed)
+                    updated_states = self.numerical_method.get_updated_states(dgr.get_current_states(),
+                                                                              dgr.get_incremental_states)
+                    dgr.update_states(updated_states)
                     
             # update reference bus last since the other buses need it's angular speed
-            updated_states = self.get_nodal_state_update(reference_bus.dgr)
+            updated_states = self.numerical_method.get_updated_states(reference_bus.dgr.get_current_states(),
+                                                                      reference_bus.dgr.get_incremental_states)
             reference_bus.dgr.update_states(updated_states)
-            
-            # embed()
 
             # solve power flow without slack bus, make sure to leave append=True (this is the default option), tolerance=self.power_flow_tolerance
             _ = self.network.solve_power_flow(tolerance=self.power_flow_tolerance)
-                
-    
-    def get_nodal_state_update(self, node):
-        return self.numerical_method.get_nodal_state_update(node)
