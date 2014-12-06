@@ -1,2 +1,3 @@
 from load_changes import PermanentConstantPowerLoadChange, TemporaryConstantPowerLoadChange
+from numerical_methods import NewtonRhapson, RungeKutta45
 from simulation_routine import SimulationRoutine

@@ -2,14 +2,14 @@ from math import ceil
 
 from numpy import empty
 
-from numerical_methods import RungeKutta45
+from numerical_methods import RungeKutta45, ForwardEuler
 
 from IPython import embed
 
 
 class SimulationRoutine(object):
     
-    def __init__(self, power_network, simulation_time, system_changes=None, time_step=0.0001, power_flow_tolerance=0.00001):
+    def __init__(self, power_network, simulation_time, system_changes=None, time_step=0.001, power_flow_tolerance=0.00001):
         
         self.network = power_network
         self.simulation_time = simulation_time
@@ -19,6 +19,7 @@ class SimulationRoutine(object):
         self.time_vector = empty(self.num_simulation_steps)
         
         self.numerical_method = RungeKutta45(time_step)
+        # self.numerical_method = ForwardEuler(time_step)
         
         self.system_changes = [] 
         if system_changes is not None:

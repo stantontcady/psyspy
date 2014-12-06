@@ -8,6 +8,7 @@ from scipy.sparse import lil_matrix, csr_matrix, diags
 from scipy.sparse.linalg import spsolve
 
 from power_line import PowerLine
+from simulation_resources import NewtonRhapson
 
 from IPython import embed
 
@@ -20,6 +21,7 @@ class PowerNetwork(object):
         self.power_lines = []
         self.power_lines.extend(power_lines)
         set_printoptions(linewidth=175)
+        self.solver = NewtonRhapson(tolerance=0.00001)
 
         
     def __repr__(self):
@@ -651,26 +653,15 @@ class PowerNetwork(object):
             # create a new column in each of the nodes' states to append the solution from power flow
             x = self._get_current_voltage_vector()
             self._save_new_voltages_from_vector(x, replace=False)
-        fx = self._generate_function_vector()
-        k = 0
-        while True:
-            J = csr_matrix(self._generate_jacobian_matrix())
-            if k > 100:
-                condition_number = cond(J.todense())
-                if condition_number > 50000:
-                    raise ValueError('system is likely unstable, Jacobian is ill-conditioned: %i' % condition_number)
-            x = self._get_current_voltage_vector()
-            x_next = x - spsolve(J, fx)
-            self._save_new_voltages_from_vector(x_next)
-            fx = self._generate_function_vector()
-            error = norm(fx, inf)
-            if error < tolerance:
-                break
-            k += 1
+            
+        x_root, k = self.solver.find_roots(get_current_states_method=self._get_current_voltage_vector,
+                                           save_updated_states_method=self._save_new_voltages_from_vector,
+                                           get_jacobian_method=self._generate_jacobian_matrix, 
+                                           get_function_vector_method=self._generate_function_vector)
 
         self._compute_and_save_line_power_flows(append=append)
-        
-        return x_next
+
+        return x_root
         
         
     def _compute_and_save_line_power_flows(self, append=True):
