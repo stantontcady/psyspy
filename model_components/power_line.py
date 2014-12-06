@@ -18,9 +18,11 @@ class PowerLine(object):
         
         set_initial_conditions(self, 'Pab', 0)
         set_initial_conditions(self, 'Qab', 0)
+
         
     def __repr__(self):
         return '\n'.join([line for line in self.repr_helper()])
+
         
     def repr_helper(self, simple=False, indent_level_increment=2):
         

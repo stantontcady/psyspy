@@ -6,7 +6,7 @@ from matplotlib.pylab import plot, figure, show, ylim
 from numpy import amax, amin
 
 from model_components import Bus, ConstantPowerLoad, PowerNetwork, SynchronousDGR
-from simulation_resources import SimulationRoutine, TemporaryConstantPowerLoadChange, PermanentConstantPowerLoadChange
+from simulation_resources import SimulationRoutine, TemporaryConstantPowerLoadChange, PermanentConstantPowerLoadChange, TemporaryPowerLineImpedanceChange
 
 la = ConstantPowerLoad(P=1.25, Q=0.5) # Station A
 lb = ConstantPowerLoad(P=0.9, Q=0.3) # Station B
@@ -57,12 +57,13 @@ line2 = n.connect_buses(b2, b7, z=(0, 0.0625))
 n.set_slack_bus(b1)
 
 # c1 = TemporaryConstantPowerLoadChange(start_time=0.5, end_time=2, affected_load=b5, new_P=1.5)
-c2 = PermanentConstantPowerLoadChange(start_time=1.5, affected_load=lb, new_P=1)
+# c2 = PermanentConstantPowerLoadChange(start_time=0.5, affected_load=lb, new_P=1)
+# c2 = TemporaryPowerLineImpedanceChange(affected_line=line4, start_time=1, end_time=1.1, new_z=(0.02, 0.085))
 # c2 = TemporaryConstantPowerLoadChange(start_time=2, end_time=10, affected_node=la, new_Q=0.85)
 # c2 = TemporaryConstantPowerLoadChange(start_time=1.5, end_time=10.1, affected_node=lb, new_P=1.25)
 
 
-sim = SimulationRoutine(n, 3, [c2])
+sim = SimulationRoutine(n, 5, [])
 sim.run_simulation()
 # embed()
 
