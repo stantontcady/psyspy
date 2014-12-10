@@ -58,12 +58,12 @@ n.set_slack_bus(b1)
 
 # c1 = TemporaryConstantPowerLoadChange(start_time=0.5, end_time=2, affected_load=b5, new_P=1.5)
 # c2 = PermanentConstantPowerLoadChange(start_time=0.5, affected_load=lb, new_P=1)
-# c2 = TemporaryPowerLineImpedanceChange(affected_line=line4, start_time=1, end_time=1.1, new_z=(0.02, 0.085))
+c2 = TemporaryPowerLineImpedanceChange(affected_line=line4, start_time=1, end_time=1.1, new_z=(0.015, 0.085))
 # c2 = TemporaryConstantPowerLoadChange(start_time=2, end_time=10, affected_node=la, new_Q=0.85)
 # c2 = TemporaryConstantPowerLoadChange(start_time=1.5, end_time=10.1, affected_node=lb, new_P=1.25)
 
 
-sim = SimulationRoutine(n, 5, [])
+sim = SimulationRoutine(n, 4, [c2])
 sim.run_simulation()
 # embed()
 

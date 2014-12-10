@@ -470,10 +470,11 @@ class PowerNetwork(object):
                         J[i+1, j] = self._jacobian_kii_helper(bus_id_i, Vi_polar, connected_bus_ids)
                         J[i, j+1] = self._jacobian_nii_helper(bus_id_i, Vi_polar, connected_bus_ids, Kii=J[i+1, j])
                         if bus_i.has_dynamic_dgr_attached() is True:
-                            J[i, j] += Hii_dgr
-                            J[i, j+1] += Nii_dgr
-                            J[i+1, j] += Kii_dgr
-                            J[i+1, j+1] += Lii_dgr
+                            # these are subtracted because of the defnition of fp and fq
+                            J[i, j] -= Hii_dgr
+                            J[i, j+1] -= Nii_dgr
+                            J[i+1, j] -= Kii_dgr
+                            J[i+1, j+1] -= Lii_dgr
                         j += 1
                 else:
                     bus_id_j = jacobian_matrix_index_bus_id_mapping[j]
@@ -525,6 +526,14 @@ class PowerNetwork(object):
         return diag_elements, jacobian_indices
 
 
+    def _connected_bus_helper(self, bus_id_i, Vi_polar, bus_id_k, real_trig_function, imag_trig_function, imag_multipler=1):
+        _, thetai = Vi_polar
+        bus_k = self.get_bus_by_id(bus_id_k)
+        Vk, thetak = bus_k.get_current_voltage()
+        Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
+        return Vk*(Gik*real_trig_function(thetai - thetak) + imag_multipler*Bik*imag_trig_function(thetai - thetak))
+
+
     def _jacobian_hij_helper(self, Vi_polar, Vj_polar, Gij, Bij, Lij=None):
         Vj, thetaj = Vj_polar
         if Lij is not None:
@@ -535,18 +544,16 @@ class PowerNetwork(object):
 
         
     def _jacobian_hii_helper(self, bus_id_i, Vi_polar, connected_bus_ids, Lii=None):
-        Vi, thetai = Vi_polar
+        Vi, _ = Vi_polar
         if Lii is not None:
             _, Bii = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
             Qneti = self._get_qneti(Bii, Vi, Lii=Lii)
             return Bii*Vi**2 - Qneti
         else:
             Hii = 0
+            
             for bus_id_k in connected_bus_ids:
-                bus_k = self.get_bus_by_id(bus_id_k)
-                Vk, thetak = bus_k.get_current_voltage()
-                Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
-                Hii += Vk*(Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak))
+                Hii += self._connected_bus_helper(bus_id_i, Vi_polar, bus_id_k, sin, cos)
 
             return -1*Vi*Hii
 
@@ -569,10 +576,8 @@ class PowerNetwork(object):
         else:
             Nii = 2*Gii*Vi
             for bus_id_k in connected_bus_ids:
-                bus_k = self.get_bus_by_id(bus_id_k)
-                Vk, thetak = bus_k.get_current_voltage()
-                Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
-                Nii += Vk*(Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak))
+                Nii += self._connected_bus_helper(bus_id_i, Vi_polar, bus_id_k, cos, sin, -1)
+
             return Nii
         
 
@@ -594,10 +599,8 @@ class PowerNetwork(object):
         else:
             Kii = 0
             for bus_id_k in connected_bus_ids:
-                bus_k = self.get_bus_by_id(bus_id_k)
-                Vk, thetak = bus_k.get_current_voltage()
-                Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
-                Kii += Vk*(Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak))
+                Kii += self._connected_bus_helper(bus_id_i, Vi_polar, bus_id_k, cos, sin, -1)
+
             return Vi*Kii
         
     
@@ -618,12 +621,9 @@ class PowerNetwork(object):
             return Bii*Vi + Qneti/Vi
         else:
             Lii = 2*Bii*Vi
-
             for bus_id_k in connected_bus_ids:
-                bus_k = self.get_bus_by_id(bus_id_k)
-                Vk, thetak = bus_k.get_current_voltage()
-                Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
-                Lii += Vk*(Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak))
+                Lii += self._connected_bus_helper(bus_id_i, Vi_polar, bus_id_k, sin, cos)
+
             return Lii
 
     
@@ -709,10 +709,7 @@ class PowerNetwork(object):
         Q = Bii*Vi
         
         for bus_id_k in connected_bus_ids:
-            bus_k = self.get_bus_by_id(bus_id_k)
-            Vk, thetak = bus_k.get_current_voltage()
-            Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
-            Q += Vk*(Gik*sin(thetai - thetak) + Bik*cos(thetai - thetak))
+            Q += self._connected_bus_helper(bus_id_i, Vi_polar, bus_id_k, sin, cos)
         
         Q *= Vi
         return Q
@@ -740,10 +737,7 @@ class PowerNetwork(object):
         P = Gii*Vi
         
         for bus_id_k in connected_bus_ids:
-            bus_k = self.get_bus_by_id(bus_id_k)
-            Vk, thetak = bus_k.get_current_voltage()
-            Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
-            P += Vk*(Gik*cos(thetai - thetak) - Bik*sin(thetai - thetak))
+            P += self._connected_bus_helper(bus_id_i, Vi_polar, bus_id_k, cos, sin, -1)
         
         P *= Vi
         return P

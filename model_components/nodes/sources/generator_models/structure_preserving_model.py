@@ -178,33 +178,43 @@ class StructurePreservingModel(GeneratorModel):
     def dp_out_d_theta_model(self, V, theta, d=None):
         if d is None:
             d, _, _ = self.get_current_states()
-        return (1./self.Xdp)*V*self.E[-1]*cos(d - theta)
+        return -1*(1./self.Xdp)*V*self.E[-1]*cos(d - theta)
 
 
     def dp_out_d_v_model(self, V, theta, d=None):
         if d is None:
             d, _, _ = self.get_current_states()
-        return -1*(1./self.Xdp)*self.E[-1]*sin(d - theta)
+        return (1./self.Xdp)*self.E[-1]*sin(d - theta)
+        
+    
+    def dp_out_d_d_model(self, V, theta, d=None):
+        if d is None:
+            d, _, _ = self.get_current_states()
+        return (1./self.Xdp)*V*self.E[-1]*cos(d - theta)
 
 
     def dq_out_d_theta_model(self, V, theta, d=None):
         if d is None:
             d, _, _ = self.get_current_states()
-        return (1./self.Xdp)*V*self.E[-1]*sin(theta - d)
+        return -1*(1./self.Xdp)*V*self.E[-1]*sin(theta - d)
         
         
     def dq_out_d_v_model(self, V, theta, d=None):
         if d is None:
             d, _, _ = self.get_current_states()
-        return 2*V/self.Xdp - (1./self.Xdp)*self.E[-1]*cos(theta - d)
+        return (1./self.Xdp)*self.E[-1]*cos(theta - d) - 2*V/self.Xdp
+
+        
+    def dq_out_d__model(self, V, theta, d=None):
+        if d is None:
+            d, _, _ = self.get_current_states()
+        return (1./self.Xdp)*V*self.E[-1]*sin(theta - d)
 
         
     def _back_emf_initial_value(self, V, theta, Pg, Qg):
         # these are needed numerous times, compute once first
         cos_theta = cos(theta)
         sin_theta = sin(theta)
-        # real and imaginary parts of current share a common denominator, this is just V!
-        # current_denominator = V*(cos_theta**2 + sin_theta**2)
         # Back emf is E < delta = a + jb
         a = V*cos_theta + self.Xdp*(Qg*cos_theta - Pg*sin_theta)/V
         b = V*sin_theta + self.Xdp*(Pg*cos_theta + Qg*sin_theta)/V
