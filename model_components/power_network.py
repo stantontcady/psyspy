@@ -544,9 +544,10 @@ class PowerNetwork(object):
         bus = self.get_bus_by_id(bus_id)
         V, theta = bus.get_current_voltage()
         has_dynamic_dgr = bus.has_dynamic_dgr_attached()
+        is_pv_bus = bus.is_pv_bus()
         
-        if has_dynamic_dgr is True:
-            dgr_derivatives = bus_i.dgr.get_real_reactive_power_derivatives(V, theta)
+        if has_dynamic_dgr is True and is_pv_bus is False:
+            dgr_derivatives = bus.dgr.get_real_reactive_power_derivatives(V, theta)
         else:
             dgr_derivatives = ()
             
@@ -561,7 +562,7 @@ class PowerNetwork(object):
             interconnection_conductances.append(Gik)
             interconnection_susceptances.append(Bik)
             
-        return (self.is_slack_bus_by_id(bus_id), bus.is_pv_bus(), has_dynamic_dgr, 
+        return (self.is_slack_bus_by_id(bus_id), is_pv_bus, has_dynamic_dgr, 
                connected_bus_ids, interconnection_conductances, interconnection_susceptances,
                self_conductance, self_susceptance, V, theta, dgr_derivatives)
 
