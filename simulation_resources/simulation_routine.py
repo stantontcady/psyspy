@@ -80,7 +80,8 @@ class SimulationRoutine(object):
         for dynamic_dgr_bus in dynamic_dgr_buses:
             # this is easily parallelizable
             dynamic_dgr_bus.make_temporary_pv_bus()
-        _ = self.network.solve_power_flow(tolerance=self.power_flow_tolerance, append=False)
+
+        _ = self.network.solve_power_flow(tolerance=self.power_flow_tolerance, append=False, force_static_var_recompute=True)
         
         
         # these can be parallelized
@@ -105,13 +106,19 @@ class SimulationRoutine(object):
             dynamic_dgr_bus.dgr.shift_initial_torque_angle(reference_angle)
             dynamic_dgr_bus.dgr.set_reference_angle(reference_angle)
         
+        # need to update static variables to account for some changed bus properties
+        self.network.save_static_vars_list()
+        
 
         for k in range(0, self.num_simulation_steps):
             self.time_vector[k] = self.current_time
             admittance_matrix_recompute_required = self.check_all_system_changes_active()
+            force_static_var_recompute = False
+
             if admittance_matrix_recompute_required is True:
             #     # this function forces a recomputation of the admittance matrix which may be necessary to account for change
                 _, _ = self.network.save_admittance_matrix()
+                force_static_var_recompute = True
             self.current_time += self.time_step
             
             reference_dgr_states = reference_bus.dgr.get_current_states(as_dictionary=True)
@@ -132,4 +139,5 @@ class SimulationRoutine(object):
             reference_bus.dgr.update_states(updated_states)
 
             # solve power flow without slack bus, make sure to leave append=True (this is the default option), tolerance=self.power_flow_tolerance
-            _ = self.network.solve_power_flow(tolerance=self.power_flow_tolerance)
+            _ = self.network.solve_power_flow(tolerance=self.power_flow_tolerance,
+                                              force_static_var_recompute=force_static_var_recompute)

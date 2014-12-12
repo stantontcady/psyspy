@@ -561,7 +561,7 @@ class PowerNetwork(object):
         return V, theta, dgr_derivatives
 
         
-    def _save_static_vars_list(self, index_bus_id_mapping=None):
+    def save_static_vars_list(self, index_bus_id_mapping=None):
 
         (is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
          interconnection_conductances_list, interconnection_susceptances_list,
@@ -709,7 +709,7 @@ class PowerNetwork(object):
             self.save_admittance_matrix(optimal_ordering=optimal_ordering)
             
         if force_static_var_recompute is True:
-            self._save_static_vars_list()
+            self.save_static_vars_list()
 
         if append is True:
             # create a new column in each of the nodes' states to append the solution from power flow
