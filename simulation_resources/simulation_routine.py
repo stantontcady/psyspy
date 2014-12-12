@@ -86,10 +86,9 @@ class SimulationRoutine(object):
         
         # these can be parallelized
         for dynamic_dgr_bus in dynamic_dgr_buses:
-            dynamic_dgr_bus.stop_temporary_pv_bus()
-            Pnetwork = self.network.compute_real_power_injected_from_network(dynamic_dgr_bus)
-            Qnetwork = self.network.compute_reactive_power_injected_from_network(dynamic_dgr_bus)
+            Pnetwork, Qnetwork = self.network.compute_apparent_power_injected_from_network(dynamic_dgr_bus)
             dynamic_dgr_bus.dgr.initialize_states(Pnetwork, Qnetwork)
+            dynamic_dgr_bus.stop_temporary_pv_bus()
             
             
         # no longer need a slack bus during dynamic simulation

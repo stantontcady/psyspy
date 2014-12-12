@@ -417,33 +417,58 @@ class PowerNetwork(object):
     def _generate_function_vector(self):
         function_vector = array([])
         admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
-        for bus_id in admittance_matrix_index_bus_id_mapping:
-            bus = self.get_bus_by_id(bus_id)
-            if self.is_slack_bus(bus) is True:
+
+        (is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
+         interconnection_conductances_list, interconnection_susceptances_list,
+         self_conductance_list, self_susceptance_list) = self._get_static_vars_list()
+
+        (voltage_mag_list,
+         voltage_angle_list,
+         dgr_derivatives) = self._get_varying_vars_list(admittance_matrix_index_bus_id_mapping)
+
+        for index, bus_id in enumerate(admittance_matrix_index_bus_id_mapping):
+            
+            if is_slack_bus_list[index] is True:
                 continue
-            fp, fq = self._fp_fq_helper(bus)
-            # if self.is_voltage_angle_reference_bus_by_id(bus_id) is False:
+                
+            Vi = voltage_mag_list[index]
+            thetai = voltage_angle_list[index]
+            Gii = self_conductance_list[index]
+            Bii = self_susceptance_list[index]
+
+            fp, fq = self._fp_fq_helper(bus_id, Vi, thetai, Gii, Bii,
+                                        admittance_matrix_index_bus_id_mapping,
+                                        voltage_mag_list, voltage_angle_list,
+                                        connected_bus_ids_list[index],
+                                        interconnection_conductances_list[index],
+                                        interconnection_susceptances_list[index])
+
             function_vector = append(function_vector, fp)
             
-            if bus.is_pv_bus() is False:
+            if is_pv_bus_list[index] is False:
                 function_vector = append(function_vector, fq)
         
         return function_vector
 
 
-    def _fp_fq_helper(self, bus_i):
-        bus_id_i = bus_i.get_id()
-        Vi_polar = bus_i.get_current_voltage()
-        Gii, Bii = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
-        P_net, Q_net = bus_i.get_specified_real_reactive_power()
-        connected_bus_ids = self.get_all_connected_bus_ids_by_id(bus_id_i)
+    def _fp_fq_helper(self, bus_id, Vi, thetai, Gii, Bii,
+                      admittance_matrix_index_bus_id_mapping,
+                      voltage_mag_list, voltage_angle_list,
+                      connected_bus_ids,
+                      interconnection_conductances_list,
+                      interconnection_susceptances_list):
+
+        P_net, Q_net = self.get_bus_by_id(bus_id).get_specified_real_reactive_power()
         
-        P_network = self.compute_real_power_injected_from_network(None, bus_id_i, Vi_polar, Gii, connected_bus_ids)
-        fp = P_network - P_net
-        Q_network = self.compute_reactive_power_injected_from_network(None, bus_id_i, Vi_polar, Bii, connected_bus_ids)
-        fq = Q_network - Q_net
-            
-        return fp, fq
+        (P_network,
+         Q_network) = PowerNetwork._compute_apparent_power_injected_from_network(Vi, thetai, Gii, Bii,
+                                                                                 admittance_matrix_index_bus_id_mapping,
+                                                                                 voltage_mag_list, voltage_angle_list,
+                                                                                 connected_bus_ids,
+                                                                                 interconnection_conductances_list,
+                                                                                 interconnection_susceptances_list)
+
+        return P_network - P_net, Q_network - Q_net
 
 
     def _generate_jacobian_matrix(self):
@@ -748,65 +773,57 @@ class PowerNetwork(object):
         Qij = -Bij*Vi**2 + Vi*Vj*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
         return Pij, Qij
 
+    
+    def compute_apparent_power_injected_from_network(self, bus):
+        admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
 
-    def compute_reactive_power_injected_from_network(self,
-                                                     bus_i=None,
-                                                     bus_id_i=None,
-                                                     Vi_polar=None,
-                                                     Bii=None,
-                                                     connected_bus_ids=None):
-        if bus_i is None and (bus_id_i is None or Vi_polar is None or Bii is None or connected_bus_ids is None):
-            raise AttributeError('must provide bus object or all of: bus id, \
-                                  bus polar voltage, self susceptance, and a list of conencted bus ids')
+        (is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
+         interconnection_conductances_list, interconnection_susceptances_list,
+         self_conductance_list, self_susceptance_list) = self._get_static_vars_list()
+
+        (voltage_mag_list,
+         voltage_angle_list,
+         dgr_derivatives) = self._get_varying_vars_list(admittance_matrix_index_bus_id_mapping)
+
+        bus_id = bus.get_id()
+        index = admittance_matrix_index_bus_id_mapping.index(bus_id)
+                
+        Vi = voltage_mag_list[index]
+        thetai = voltage_angle_list[index]
+        Gii = self_conductance_list[index]
+        Bii = self_susceptance_list[index]
         
-        if bus_id_i is None:
-            bus_id_i = bus_i.get_id()
-        if Vi_polar is None:
-            Vi_polar = bus_i.get_current_voltage()
-        if Bii is None:
-            _, Bii = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
-        if connected_bus_ids is None:
-            connected_bus_ids = self.get_all_connected_bus_ids_by_id(bus_id_i)
-        Vi, thetai = Vi_polar
+        return PowerNetwork._compute_apparent_power_injected_from_network(Vi, thetai, Gii, Bii,
+                                                                          admittance_matrix_index_bus_id_mapping,
+                                                                          voltage_mag_list, voltage_angle_list,
+                                                                          connected_bus_ids_list[index],
+                                                                          interconnection_conductances_list[index],
+                                                                          interconnection_susceptances_list[index])
+
+
+    @staticmethod
+    def _compute_apparent_power_injected_from_network(Vi, thetai, Gii, Bii,
+                                                     admittance_matrix_index_bus_id_mapping,
+                                                     voltage_mag_list, voltage_angle_list,
+                                                     connected_bus_ids,
+                                                     interconnection_conductances_list,
+                                                     interconnection_susceptances_list):
+                                  
+        P = Gii*Vi
         Q = Bii*Vi
+        for index_k, bus_id_k in enumerate(connected_bus_ids):           
+            admittance_matrix_index_k = admittance_matrix_index_bus_id_mapping.index(bus_id_k)
+            Vk = voltage_mag_list[admittance_matrix_index_k]
+            thetak = voltage_angle_list[admittance_matrix_index_k]
+            Gik = interconnection_conductances_list[index_k]
+            Bik = interconnection_susceptances_list[index_k]
             
-        for bus_id_k in connected_bus_ids:
-            Vk, thetak = self.get_bus_by_id(bus_id_k).get_current_voltage()
-            Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
+            P += PowerNetwork._connected_bus_helper(thetai, Vk, thetak, Gik, Bik, cos, sin, -1)
             Q += PowerNetwork._connected_bus_helper(thetai, Vk, thetak, Gik, Bik, sin, cos)
         
-        Q *= Vi
-        return Q
-
-
-    def compute_real_power_injected_from_network(self,
-                                                 bus_i=None,
-                                                 bus_id_i=None,
-                                                 Vi_polar=None,
-                                                 Gii=None,
-                                                 connected_bus_ids=None):
-        if bus_i is None and (bus_id_i is None or Vi_polar is None or Gii is None or connected_bus_ids is None):
-            raise AttributeError('must provide bus object or all of: bus id, \
-                                  bus polar voltage, self conductance, and a list of conencted bus ids')
-        
-        if bus_id_i is None:
-            bus_id_i = bus_i.get_id()
-        if Vi_polar is None:
-            Vi_polar = bus_i.get_current_voltage()
-        if Gii is None:
-            Gii, _ = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_i)
-        if connected_bus_ids is None:
-            connected_bus_ids = self.get_all_connected_bus_ids_by_id(bus_id_i)
-        Vi, thetai = Vi_polar
-        P = Gii*Vi
-        
-        for bus_id_k in connected_bus_ids:
-            Vk, thetak = self.get_bus_by_id(bus_id_k).get_current_voltage()
-            Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id_i, bus_id_k)
-            P += PowerNetwork._connected_bus_helper(thetai, Vk, thetak, Gik, Bik, cos, sin, -1)
-        
         P *= Vi
-        return P
+        Q *= Vi
+        return P, Q
 
 
     def identify_dynamic_dgr_buses(self):
