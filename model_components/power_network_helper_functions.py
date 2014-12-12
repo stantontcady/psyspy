@@ -111,3 +111,69 @@ def compute_apparent_power_injected_from_network(Vi, thetai, Gii, Bii,
     P *= Vi
     Q *= Vi
     return P, Q
+
+def compute_jacobian_row_by_bus(J, index_i,
+                                is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
+                                jacobian_indices,
+                                admittance_matrix_index_bus_id_mapping,
+                                interconnection_conductances_list, interconnection_susceptances_list,
+                                self_conductance_list, self_susceptance_list,
+                                voltage_mag_list, voltage_angle_list, dgr_derivatives):
+
+    if is_slack_bus_list[index_i] is True:
+        return
+    
+    Vi = voltage_mag_list[index_i]
+    thetai = voltage_angle_list[index_i]
+    Gii = self_conductance_list[index_i]
+    Bii = self_susceptance_list[index_i]
+    
+    connected_bus_ids = connected_bus_ids_list[index_i]
+    interconnection_conductances = interconnection_conductances_list[index_i]
+    interconnection_susceptances = interconnection_susceptances_list[index_i]
+    
+    Hii, Nii, Kii, Lii = jacobian_diagonal_helper(Vi, thetai, Gii, Bii, is_pv_bus_list[index_i],
+                                                  admittance_matrix_index_bus_id_mapping,
+                                                  voltage_mag_list, voltage_angle_list,
+                                                  connected_bus_ids,
+                                                  interconnection_conductances,
+                                                  interconnection_susceptances)
+    
+    i = jacobian_indices[index_i]
+    
+    J[i, i] = Hii    
+    if is_pv_bus_list[index_i] is False:
+        J[i+1, i] = Kii
+        J[i, i+1] = Nii
+        J[i+1, i+1] = Lii
+        if has_dynamic_dgr_list[index_i] is True:
+            Hii_dgr, Nii_dgr, Kii_dgr, Lii_dgr = dgr_derivatives[index_i]
+            J[i, i] -= Hii_dgr
+            J[i, i+1] -= Nii_dgr
+            J[i+1, i] -= Kii_dgr
+            J[i+1, i+1] -= Lii_dgr
+    
+    for connected_bus_index_j, bus_id_j in enumerate(connected_bus_ids):
+        index_j = admittance_matrix_index_bus_id_mapping.index(bus_id_j)
+        if is_slack_bus_list[index_j] is False:
+            j = jacobian_indices[index_j]
+
+            Vj = voltage_mag_list[index_j]
+            thetaj = voltage_angle_list[index_j]
+            Gij = interconnection_conductances[connected_bus_index_j]
+            Bij = interconnection_susceptances[connected_bus_index_j]
+            
+            J[i, j] = jacobian_hij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Lij=None)
+
+            if is_pv_bus_list[index_i] is False:
+                J[i+1, j] = jacobian_kij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Nij=None)
+
+            if is_pv_bus_list[index_j] is False:
+                if is_pv_bus_list[index_i] is False:
+                    J[i+1, j+1] = jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Hij=None)#J[i, j])
+
+                J[i, j+1] = jacobian_nij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Kij=None)#J[i+1, j])
+
+
+def sum_test(array, index):
+    array[index] = 2
