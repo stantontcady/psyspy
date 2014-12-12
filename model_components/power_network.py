@@ -450,10 +450,13 @@ class PowerNetwork(object):
         admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
         slack_bus_id = self.get_slack_bus_id()
 
-        (is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, 
-        connected_bus_ids_list, interconnection_conductances_list, interconnection_susceptances_list,
-        self_conductance_list, self_susceptance_list, voltage_mag_list, voltage_angle_list,
-        dgr_derivatives) = frompyfunc(self._jacobian_size_helper, 1, 11)(admittance_matrix_index_bus_id_mapping)
+        (is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
+         interconnection_conductances_list, interconnection_susceptances_list,
+         self_conductance_list, self_susceptance_list) = self._get_static_vars_list()
+
+        (voltage_mag_list,
+         voltage_angle_list,
+         dgr_derivatives) = self._get_varying_vars_list(admittance_matrix_index_bus_id_mapping)
 
         num_pv_buses = sum([1 if x is True else 0 for x in is_pv_bus_list])
         num_buses = len(admittance_matrix_index_bus_id_mapping)
@@ -521,16 +524,16 @@ class PowerNetwork(object):
                     Gij = interconnection_conductances[connected_bus_index_j]
                     Bij = interconnection_susceptances[connected_bus_index_j]
                     
-                    J[i, j]= PowerNetwork._jacobian_hij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Lij=None)
+                    J[i, j] = PowerNetwork._jacobian_hij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Lij=None)
 
                     if is_pv_bus_list[index_i] is False:
-                        J[i+1, j] = PowerNetwork._jacobian_kij_helper(Vi, thetai, Vj, thetaj, Gij, Bij)
+                        J[i+1, j] = PowerNetwork._jacobian_kij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Nij=None)
 
                     if is_pv_bus_list[index_j] is False:
                         if is_pv_bus_list[index_i] is False:
-                            J[i+1, j+1] = PowerNetwork._jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij)
+                            J[i+1, j+1] = PowerNetwork._jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Hij=None)#J[i, j])
 
-                        J[i, j+1] = PowerNetwork._jacobian_nij_helper(Vi, thetai, Vj, thetaj, Gij, Bij)
+                        J[i, j+1] = PowerNetwork._jacobian_nij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Kij=None)#J[i+1, j])
         
         
         # folder = tempfile.mkdtemp()
@@ -539,20 +542,77 @@ class PowerNetwork(object):
 
         return J
 
-        
-    def _jacobian_size_helper(self, bus_id):
+
+    def _get_varying_vars_list(self, index_bus_id_mapping=None):
+        if index_bus_id_mapping is None:
+            index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
+        return frompyfunc(self._varying_var_helper, 1, 3)(index_bus_id_mapping)
+
+
+    def _varying_var_helper(self, bus_id):
         bus = self.get_bus_by_id(bus_id)
         V, theta = bus.get_current_voltage()
-        has_dynamic_dgr = bus.has_dynamic_dgr_attached()
-        is_pv_bus = bus.is_pv_bus()
-        
-        if has_dynamic_dgr is True and is_pv_bus is False:
+
+        if bus.has_dynamic_dgr_attached() is True and bus.is_pv_bus() is False:
             dgr_derivatives = bus.dgr.get_real_reactive_power_derivatives(V, theta)
         else:
             dgr_derivatives = ()
-            
+
+        return V, theta, dgr_derivatives
+
+        
+    def _save_static_vars_list(self, index_bus_id_mapping=None):
+
+        (is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
+         interconnection_conductances_list, interconnection_susceptances_list,
+         self_conductance_list, self_susceptance_list) = self._generate_static_vars_list(index_bus_id_mapping)
+         
+        self.is_slack_bus_list = is_slack_bus_list
+        self.is_pv_bus_list = is_pv_bus_list
+        self.has_dynamic_dgr_list = has_dynamic_dgr_list
+        self.connected_bus_ids_list = connected_bus_ids_list
+        self.interconnection_conductances_list = interconnection_conductances_list
+        self.interconnection_susceptances_list = interconnection_susceptances_list
+        self.self_conductance_list = self_conductance_list
+        self.self_susceptance_list = self_susceptance_list
+        
+
+    def _get_static_vars_list(self, force_recompute=False, index_bus_id_mapping=None):
+        recompute = False
+        if force_recompute is True:
+            recompute = True
+        else:
+            try:
+                is_slack_bus_list = self.is_slack_bus_list
+                is_pv_bus_list = self.is_pv_bus_list
+                has_dynamic_dgr_list = self.has_dynamic_dgr_list
+                connected_bus_ids_list = self.connected_bus_ids_list
+                interconnection_conductances_list = self.interconnection_conductances_list
+                interconnection_susceptances_list = self.interconnection_susceptances_list
+                self_conductance_list = self.self_conductance_list
+                self_susceptance_list = self.self_susceptance_list
+            except AttributeError:
+                recompute = True
+        
+        if recompute is True:
+            return self._generate_static_vars_list(index_bus_id_mapping)
+        else:                
+            return (is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
+                    interconnection_conductances_list, interconnection_susceptances_list,
+                    self_conductance_list, self_susceptance_list)
+
+
+    def _generate_static_vars_list(self, index_bus_id_mapping=None):
+        if index_bus_id_mapping is None:
+            index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
+        return frompyfunc(self._static_var_helper, 1, 8)(index_bus_id_mapping)
+
+
+    def _static_var_helper(self, bus_id):
+        bus = self.get_bus_by_id(bus_id)
+
         self_conductance, self_susceptance = self._get_admittance_value_from_bus_ids(bus_id, bus_id)
- 
+
         interconnection_conductances = []
         interconnection_susceptances = []
 
@@ -561,12 +621,11 @@ class PowerNetwork(object):
             Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id, connected_bus_id)
             interconnection_conductances.append(Gik)
             interconnection_susceptances.append(Bik)
-            
-        return (self.is_slack_bus_by_id(bus_id), is_pv_bus, has_dynamic_dgr, 
-               connected_bus_ids, interconnection_conductances, interconnection_susceptances,
-               self_conductance, self_susceptance, V, theta, dgr_derivatives)
 
-        
+        return (self.is_slack_bus_by_id(bus_id), bus.is_pv_bus(), bus.has_dynamic_dgr_attached(), connected_bus_ids,
+                interconnection_conductances, interconnection_susceptances, self_conductance, self_susceptance)
+
+
     @staticmethod                
     def _connected_bus_helper(thetai, Vk, thetak, Gik, Bik, real_trig_function, imag_trig_function, imag_multipler=1):
         return Vk*(Gik*real_trig_function(thetai - thetak) + imag_multipler*Bik*imag_trig_function(thetai - thetak))
@@ -574,7 +633,7 @@ class PowerNetwork(object):
 
     @staticmethod
     def _jacobian_hij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Lij=None):
-        if False: #if Lij is not None:
+        if Lij is not None:
             return Lij*Vj
         else:
             return Vi*Vj*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
@@ -582,14 +641,14 @@ class PowerNetwork(object):
 
     @staticmethod
     def _jacobian_nij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Kij=None):
-        if False: #if Kij is not None:
+        if Kij is not None:
             return -1*Kij/Vj
         else:
             return Vi*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
 
     @staticmethod
     def _jacobian_kij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Nij=None):
-        if False: #if Nij is not None:
+        if Nij is not None:
             return -1*Nij*Vj
         else:
             return -1*Vi*Vj*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
@@ -597,7 +656,7 @@ class PowerNetwork(object):
         
     @staticmethod
     def _jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Hij=None):
-        if False: #if Hij is not None:
+        if Hij is not None:
             return Hij/Vj
         else:
             return Vi*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
@@ -628,11 +687,14 @@ class PowerNetwork(object):
             Gik = interconnection_conductances_list[index_k]
             Bik = interconnection_susceptances_list[index_k]
             
-            Hii += PowerNetwork._connected_bus_helper(thetai, Vk, thetak, Gik, Bik, sin, cos)
+            H_L_ii = PowerNetwork._connected_bus_helper(thetai, Vk, thetak, Gik, Bik, sin, cos)
+            
+            Hii += H_L_ii
             if is_pv_bus is False:
-                Nii += PowerNetwork._connected_bus_helper(thetai, Vk, thetak, Gik, Bik, cos, sin, -1)
-                Kii += PowerNetwork._connected_bus_helper(thetai, Vk, thetak, Gik, Bik, cos, sin, -1)
-                Lii += PowerNetwork._connected_bus_helper(thetai, Vk, thetak, Gik, Bik, sin, cos)
+                N_K_ii = PowerNetwork._connected_bus_helper(thetai, Vk, thetak, Gik, Bik, cos, sin, -1)
+                Nii += N_K_ii
+                Kii += N_K_ii
+                Lii += H_L_ii
 
         Hii = -1*Vi*Hii
         if is_pv_bus is False:
@@ -640,29 +702,15 @@ class PowerNetwork(object):
         
         return Hii, Nii, Kii, Lii
 
-    
-    @staticmethod
-    def _get_pneti(Gii, Vi, Nii=None, Kii=None):
-        if Nii is not None:
-            return Vi*(Nii-Gii*Vi)
-        elif Kii is not None:
-            return Gii*Vi**2 + Kii
-        return None
 
-    
-    @staticmethod
-    def _get_qneti(Bii, Vi, Hii=None, Lii=None):
-        if Hii is not None:
-            return Bii*Vi**2 - Hii
-        elif Lii is not None:
-            return Vi*(Lii - Bii*Vi)
-        return None
-        
-
-    def solve_power_flow(self, tolerance=0.00001, optimal_ordering=True, append=True):
+    def solve_power_flow(self, tolerance=0.00001, optimal_ordering=True, append=True, force_static_var_recompute=False):
         # need to check if ordering has changed since admittance matrix was last generated
         if optimal_ordering != self.is_admittance_matrix_index_bus_id_mapping_optimal():
             self.save_admittance_matrix(optimal_ordering=optimal_ordering)
+            
+        if force_static_var_recompute is True:
+            self._save_static_vars_list()
+
         if append is True:
             # create a new column in each of the nodes' states to append the solution from power flow
             x = self._get_current_voltage_vector()
