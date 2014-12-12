@@ -11,7 +11,9 @@ from scipy.sparse import lil_matrix, csr_matrix, diags
 from scipy.sparse.linalg import spsolve
 
 from power_line import PowerLine
+from power_network_helper_functions import fp_fq_helper, connected_bus_helper, jacobian_hij_helper, jacobian_nij_helper, jacobian_kij_helper, jacobian_lij_helper, jacobian_diagonal_helper, compute_apparent_power_injected_from_network
 from simulation_resources import NewtonRhapson
+
 
 from IPython import embed
 
@@ -435,13 +437,15 @@ class PowerNetwork(object):
             thetai = voltage_angle_list[index]
             Gii = self_conductance_list[index]
             Bii = self_susceptance_list[index]
-
-            fp, fq = self._fp_fq_helper(bus_id, Vi, thetai, Gii, Bii,
-                                        admittance_matrix_index_bus_id_mapping,
-                                        voltage_mag_list, voltage_angle_list,
-                                        connected_bus_ids_list[index],
-                                        interconnection_conductances_list[index],
-                                        interconnection_susceptances_list[index])
+            
+            P_net, Q_net = self.get_bus_by_id(bus_id).get_specified_real_reactive_power()
+            
+            fp, fq = fp_fq_helper(P_net, Q_net, Vi, thetai, Gii, Bii,
+                                  admittance_matrix_index_bus_id_mapping,
+                                  voltage_mag_list, voltage_angle_list,
+                                  connected_bus_ids_list[index],
+                                  interconnection_conductances_list[index],
+                                  interconnection_susceptances_list[index])
 
             function_vector = append(function_vector, fp)
             
@@ -449,26 +453,6 @@ class PowerNetwork(object):
                 function_vector = append(function_vector, fq)
         
         return function_vector
-
-
-    def _fp_fq_helper(self, bus_id, Vi, thetai, Gii, Bii,
-                      admittance_matrix_index_bus_id_mapping,
-                      voltage_mag_list, voltage_angle_list,
-                      connected_bus_ids,
-                      interconnection_conductances_list,
-                      interconnection_susceptances_list):
-
-        P_net, Q_net = self.get_bus_by_id(bus_id).get_specified_real_reactive_power()
-        
-        (P_network,
-         Q_network) = PowerNetwork._compute_apparent_power_injected_from_network(Vi, thetai, Gii, Bii,
-                                                                                 admittance_matrix_index_bus_id_mapping,
-                                                                                 voltage_mag_list, voltage_angle_list,
-                                                                                 connected_bus_ids,
-                                                                                 interconnection_conductances_list,
-                                                                                 interconnection_susceptances_list)
-
-        return P_network - P_net, Q_network - Q_net
 
 
     def _generate_jacobian_matrix(self):
@@ -518,12 +502,12 @@ class PowerNetwork(object):
             interconnection_conductances = interconnection_conductances_list[index_i]
             interconnection_susceptances = interconnection_susceptances_list[index_i]
             
-            Hii, Nii, Kii, Lii = PowerNetwork._jacobian_diagonal_helper(Vi, thetai, Gii, Bii, is_pv_bus_list[index_i],
-                                                                        admittance_matrix_index_bus_id_mapping,
-                                                                        voltage_mag_list, voltage_angle_list,
-                                                                        connected_bus_ids,
-                                                                        interconnection_conductances,
-                                                                        interconnection_susceptances)
+            Hii, Nii, Kii, Lii = jacobian_diagonal_helper(Vi, thetai, Gii, Bii, is_pv_bus_list[index_i],
+                                                          admittance_matrix_index_bus_id_mapping,
+                                                          voltage_mag_list, voltage_angle_list,
+                                                          connected_bus_ids,
+                                                          interconnection_conductances,
+                                                          interconnection_susceptances)
             
             i = jacobian_indices[index_i]
             
@@ -549,16 +533,16 @@ class PowerNetwork(object):
                     Gij = interconnection_conductances[connected_bus_index_j]
                     Bij = interconnection_susceptances[connected_bus_index_j]
                     
-                    J[i, j] = PowerNetwork._jacobian_hij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Lij=None)
+                    J[i, j] = jacobian_hij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Lij=None)
 
                     if is_pv_bus_list[index_i] is False:
-                        J[i+1, j] = PowerNetwork._jacobian_kij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Nij=None)
+                        J[i+1, j] = jacobian_kij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Nij=None)
 
                     if is_pv_bus_list[index_j] is False:
                         if is_pv_bus_list[index_i] is False:
-                            J[i+1, j+1] = PowerNetwork._jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Hij=None)#J[i, j])
+                            J[i+1, j+1] = jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Hij=None)#J[i, j])
 
-                        J[i, j+1] = PowerNetwork._jacobian_nij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Kij=None)#J[i+1, j])
+                        J[i, j+1] = jacobian_nij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Kij=None)#J[i+1, j])
         
         
         # folder = tempfile.mkdtemp()
@@ -651,83 +635,6 @@ class PowerNetwork(object):
                 interconnection_conductances, interconnection_susceptances, self_conductance, self_susceptance)
 
 
-    @staticmethod                
-    def _connected_bus_helper(thetai, Vk, thetak, Gik, Bik, real_trig_function, imag_trig_function, imag_multipler=1):
-        return Vk*(Gik*real_trig_function(thetai - thetak) + imag_multipler*Bik*imag_trig_function(thetai - thetak))
-
-
-    @staticmethod
-    def _jacobian_hij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Lij=None):
-        if Lij is not None:
-            return Lij*Vj
-        else:
-            return Vi*Vj*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
-
-
-    @staticmethod
-    def _jacobian_nij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Kij=None):
-        if Kij is not None:
-            return -1*Kij/Vj
-        else:
-            return Vi*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
-
-    @staticmethod
-    def _jacobian_kij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Nij=None):
-        if Nij is not None:
-            return -1*Nij*Vj
-        else:
-            return -1*Vi*Vj*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
-
-        
-    @staticmethod
-    def _jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Hij=None):
-        if Hij is not None:
-            return Hij/Vj
-        else:
-            return Vi*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
-
-
-    @staticmethod
-    def _jacobian_diagonal_helper(Vi, thetai, Gii, Bii, is_pv_bus,
-                                  admittance_matrix_index_bus_id_mapping,
-                                  voltage_mag_list, voltage_angle_list,
-                                  connected_bus_ids,
-                                  interconnection_conductances_list,
-                                  interconnection_susceptances_list):
-        
-        Hii = 0                    
-        if is_pv_bus is False:
-            Nii = 2*Gii*Vi
-            Kii = 0
-            Lii = 2*Bii*Vi
-        else:
-            Nii = None
-            Kii = None
-            Lii = None
-
-        for index_k, bus_id_k in enumerate(connected_bus_ids):           
-            admittance_matrix_index_k = admittance_matrix_index_bus_id_mapping.index(bus_id_k)
-            Vk = voltage_mag_list[admittance_matrix_index_k]
-            thetak = voltage_angle_list[admittance_matrix_index_k]
-            Gik = interconnection_conductances_list[index_k]
-            Bik = interconnection_susceptances_list[index_k]
-            
-            H_L_ii = PowerNetwork._connected_bus_helper(thetai, Vk, thetak, Gik, Bik, sin, cos)
-            
-            Hii += H_L_ii
-            if is_pv_bus is False:
-                N_K_ii = PowerNetwork._connected_bus_helper(thetai, Vk, thetak, Gik, Bik, cos, sin, -1)
-                Nii += N_K_ii
-                Kii += N_K_ii
-                Lii += H_L_ii
-
-        Hii = -1*Vi*Hii
-        if is_pv_bus is False:
-            Kii *= Vi
-        
-        return Hii, Nii, Kii, Lii
-
-
     def solve_power_flow(self, tolerance=0.00001, optimal_ordering=True, append=True, force_static_var_recompute=False):
         # need to check if ordering has changed since admittance matrix was last generated
         if optimal_ordering != self.is_admittance_matrix_index_bus_id_mapping_optimal():
@@ -793,37 +700,12 @@ class PowerNetwork(object):
         Gii = self_conductance_list[index]
         Bii = self_susceptance_list[index]
         
-        return PowerNetwork._compute_apparent_power_injected_from_network(Vi, thetai, Gii, Bii,
-                                                                          admittance_matrix_index_bus_id_mapping,
-                                                                          voltage_mag_list, voltage_angle_list,
-                                                                          connected_bus_ids_list[index],
-                                                                          interconnection_conductances_list[index],
-                                                                          interconnection_susceptances_list[index])
-
-
-    @staticmethod
-    def _compute_apparent_power_injected_from_network(Vi, thetai, Gii, Bii,
-                                                     admittance_matrix_index_bus_id_mapping,
-                                                     voltage_mag_list, voltage_angle_list,
-                                                     connected_bus_ids,
-                                                     interconnection_conductances_list,
-                                                     interconnection_susceptances_list):
-                                  
-        P = Gii*Vi
-        Q = Bii*Vi
-        for index_k, bus_id_k in enumerate(connected_bus_ids):           
-            admittance_matrix_index_k = admittance_matrix_index_bus_id_mapping.index(bus_id_k)
-            Vk = voltage_mag_list[admittance_matrix_index_k]
-            thetak = voltage_angle_list[admittance_matrix_index_k]
-            Gik = interconnection_conductances_list[index_k]
-            Bik = interconnection_susceptances_list[index_k]
-            
-            P += PowerNetwork._connected_bus_helper(thetai, Vk, thetak, Gik, Bik, cos, sin, -1)
-            Q += PowerNetwork._connected_bus_helper(thetai, Vk, thetak, Gik, Bik, sin, cos)
-        
-        P *= Vi
-        Q *= Vi
-        return P, Q
+        return compute_apparent_power_injected_from_network(Vi, thetai, Gii, Bii,
+                                                            admittance_matrix_index_bus_id_mapping,
+                                                            voltage_mag_list, voltage_angle_list,
+                                                            connected_bus_ids_list[index],
+                                                            interconnection_conductances_list[index],
+                                                            interconnection_susceptances_list[index])
 
 
     def identify_dynamic_dgr_buses(self):
