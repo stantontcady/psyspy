@@ -1,5 +1,6 @@
 from math import cos, sin
 
+
 def fp_fq_helper(P_net, Q_net, Vi, thetai, Gii, Bii,
                   admittance_matrix_index_bus_id_mapping,
                   voltage_mag_list, voltage_angle_list,
@@ -16,7 +17,7 @@ def fp_fq_helper(P_net, Q_net, Vi, thetai, Gii, Bii,
 
     return P_network - P_net, Q_network - Q_net
     
-                
+               
 def connected_bus_helper(thetai, Vk, thetak, Gik, Bik, real_trig_function, imag_trig_function, imag_multipler=1):
     return Vk*(Gik*real_trig_function(thetai - thetak) + imag_multipler*Bik*imag_trig_function(thetai - thetak))
 
@@ -41,7 +42,7 @@ def jacobian_kij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Nij=None):
     else:
         return -1*Vi*Vj*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
 
-    
+
 def jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Hij=None):
     if Hij is not None:
         return Hij/Vj
@@ -112,6 +113,7 @@ def compute_apparent_power_injected_from_network(Vi, thetai, Gii, Bii,
     Q *= Vi
     return P, Q
 
+
 def compute_jacobian_row_by_bus(J, index_i,
                                 is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
                                 jacobian_indices,
@@ -173,7 +175,3 @@ def compute_jacobian_row_by_bus(J, index_i,
                     J[i+1, j+1] = jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Hij=None)#J[i, j])
 
                 J[i, j+1] = jacobian_nij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Kij=None)#J[i+1, j])
-
-
-def sum_test(array, index):
-    array[index] = 2

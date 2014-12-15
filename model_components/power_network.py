@@ -4,7 +4,7 @@ from os.path import join as path_join
 from math import sin, cos
 from tempfile import mkdtemp
 
-from joblib import Parallel, delayed, load, dump
+from joblib import Parallel, delayed, load, dump, Memory
 from numpy import append, array, zeros, frompyfunc, hstack, set_printoptions, inf, memmap
 from numpy.linalg import norm, cond
 from scipy.sparse import lil_matrix, csr_matrix, diags
@@ -453,11 +453,7 @@ class PowerNetwork(object):
                 function_vector = append(function_vector, fq)
         
         return function_vector
-    
-    # @staticmethod
-    # def sum_test(sq_ind, sq_id, index, bid):
-    #     sq_ind[index] = index**2
-    #     sq_id[index] = bid**2
+
 
     def _generate_jacobian_matrix(self):
         admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
@@ -491,8 +487,8 @@ class PowerNetwork(object):
             else:
                 jacobian_indices.append(None)
 
-        J = lil_matrix(zeros((n, n)))
-        
+        J = zeros((n, n))
+
 
         Parallel()(delayed(compute_jacobian_row_by_bus)(J, index,
                                                         is_slack_bus_list, is_pv_bus_list,
@@ -506,73 +502,7 @@ class PowerNetwork(object):
                                                         dgr_derivatives) for index, bus_id in enumerate(admittance_matrix_index_bus_id_mapping))
 
 
-
-        # for index_i, _ in enumerate(admittance_matrix_index_bus_id_mapping):
-        #     compute_jacobian_row_by_bus(J, index_i,
-        #                                 is_slack_bus_list, is_pv_bus_list,
-        #                                 has_dynamic_dgr_list, connected_bus_ids_list,
-        #                                 jacobian_indices,
-        #                                 admittance_matrix_index_bus_id_mapping,
-        #                                 interconnection_conductances_list,
-        #                                 interconnection_susceptances_list,
-        #                                 self_conductance_list, self_susceptance_list,
-        #                                 voltage_mag_list, voltage_angle_list,
-        #                                 dgr_derivatives)
-        #     if is_slack_bus_list[index_i] is True:
-        #         continue
-        #
-        #     Vi = voltage_mag_list[index_i]
-        #     thetai = voltage_angle_list[index_i]
-        #     Gii = self_conductance_list[index_i]
-        #     Bii = self_susceptance_list[index_i]
-        #
-        #     connected_bus_ids = connected_bus_ids_list[index_i]
-        #     interconnection_conductances = interconnection_conductances_list[index_i]
-        #     interconnection_susceptances = interconnection_susceptances_list[index_i]
-        #
-        #     Hii, Nii, Kii, Lii = jacobian_diagonal_helper(Vi, thetai, Gii, Bii, is_pv_bus_list[index_i],
-        #                                                   admittance_matrix_index_bus_id_mapping,
-        #                                                   voltage_mag_list, voltage_angle_list,
-        #                                                   connected_bus_ids,
-        #                                                   interconnection_conductances,
-        #                                                   interconnection_susceptances)
-        #
-        #     i = jacobian_indices[index_i]
-        #
-        #     J[i, i] = Hii
-        #     if is_pv_bus_list[index_i] is False:
-        #         J[i+1, i] = Kii
-        #         J[i, i+1] = Nii
-        #         J[i+1, i+1] = Lii
-        #         if has_dynamic_dgr_list[index_i] is True:
-        #             Hii_dgr, Nii_dgr, Kii_dgr, Lii_dgr = dgr_derivatives[index_i]
-        #             J[i, i] -= Hii_dgr
-        #             J[i, i+1] -= Nii_dgr
-        #             J[i+1, i] -= Kii_dgr
-        #             J[i+1, i+1] -= Lii_dgr
-        #
-        #     for connected_bus_index_j, bus_id_j in enumerate(connected_bus_ids):
-        #         index_j = admittance_matrix_index_bus_id_mapping.index(bus_id_j)
-        #         if is_slack_bus_list[index_j] is False:
-        #             j = jacobian_indices[index_j]
-        #
-        #             Vj = voltage_mag_list[index_j]
-        #             thetaj = voltage_angle_list[index_j]
-        #             Gij = interconnection_conductances[connected_bus_index_j]
-        #             Bij = interconnection_susceptances[connected_bus_index_j]
-        #
-        #             J[i, j] = jacobian_hij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Lij=None)
-        #
-        #             if is_pv_bus_list[index_i] is False:
-        #                 J[i+1, j] = jacobian_kij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Nij=None)
-        #
-        #             if is_pv_bus_list[index_j] is False:
-        #                 if is_pv_bus_list[index_i] is False:
-        #                     J[i+1, j+1] = jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Hij=None)#J[i, j])
-        #
-        #                 J[i, j+1] = jacobian_nij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Kij=None)#J[i+1, j])
-
-        return J
+        return lil_matrix(J)
 
 
     def _get_varying_vars_list(self, index_bus_id_mapping=None):
