@@ -476,8 +476,7 @@ class PowerNetwork(object):
         n = num_buses*2 - num_pv_buses
 
         J = zeros((n, n))
-
-
+        
         Parallel()(delayed(compute_jacobian_row_by_bus)(J, index,
                                                         is_slack_bus_list, is_pv_bus_list,
                                                         has_dynamic_dgr_list, connected_bus_ids_list,
@@ -488,18 +487,6 @@ class PowerNetwork(object):
                                                         self_conductance_list, self_susceptance_list,
                                                         voltage_mag_list, voltage_angle_list,
                                                         dgr_derivatives) for index, _ in enumerate(admittance_matrix_index_bus_id_mapping))
-        
-        # for index, _ in enumerate(admittance_matrix_index_bus_id_mapping):
-        #     compute_jacobian_row_by_bus(J, index,
-        #                                 is_slack_bus_list, is_pv_bus_list,
-        #                                 has_dynamic_dgr_list, connected_bus_ids_list,
-        #                                 jacobian_indices,
-        #                                 admittance_matrix_index_bus_id_mapping,
-        #                                 interconnection_conductances_list,
-        #                                 interconnection_susceptances_list,
-        #                                 self_conductance_list, self_susceptance_list,
-        #                                 voltage_mag_list, voltage_angle_list,
-        #                                 dgr_derivatives)
 
 
         return lil_matrix(J)
@@ -538,8 +525,8 @@ class PowerNetwork(object):
         self.interconnection_susceptances_list = interconnection_susceptances_list
         self.self_conductance_list = self_conductance_list
         self.self_susceptance_list = self_susceptance_list
-        self.jacobian_indices = jacobian_indices
-        
+        self.jacobian_indices = jacobian_indices        
+
 
     def _get_static_vars_list(self, force_recompute=False, index_bus_id_mapping=None):
         recompute = False

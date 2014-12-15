@@ -169,9 +169,12 @@ def compute_jacobian_row_by_bus(J, index_i,
 
             if is_pv_bus_list[index_i] is False:
                 J[i+1, j] = jacobian_kij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Nij=None)
+                Kij = J[i+1, j]
+            else:
+                Kij = None
 
             if is_pv_bus_list[index_j] is False:
                 if is_pv_bus_list[index_i] is False:
-                    J[i+1, j+1] = jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Hij=None)#J[i, j])
+                    J[i+1, j+1] = jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Hij=J[i, j])
 
-                J[i, j+1] = jacobian_nij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Kij=None)#J[i+1, j])
+                J[i, j+1] = jacobian_nij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Kij=Kij)
