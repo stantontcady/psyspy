@@ -4,7 +4,7 @@ from numpy import array, asarray, matrix, genfromtxt
 from numpy.testing import assert_array_equal, assert_array_almost_equal, assert_array_equal
 from scipy.sparse import lil_matrix
 
-from model_components import Bus, ConstantPowerLoad, Node, PowerNetwork, PVBus
+from model_components import Bus, ConstantPowerLoad, Node, PowerNetwork, PQBus, PVBus
 
 from IPython import embed
 
@@ -22,6 +22,34 @@ def create_wecc_9_bus_network():
     b6 = Bus(loads=lb, shunt_y=(0, 0.5*0.158 + 0.5*0.358))
     b7 = Bus(shunt_y=(0, 0.5*0.306 + 0.5*0.149))
     b8 = Bus(loads=lc, shunt_y=(0, 0.5*0.149 + 0.5*0.209))
+    b9 = Bus(shunt_y=(0, 0.5*0.358 + 0.5*0.209))
+
+    n = PowerNetwork(buses=[b1, b2, b3, b4, b5, b6, b7, b8, b9])
+
+    line1 = n.connect_buses(b1, b4, z=(0, 0.0576))
+    line4 = n.connect_buses(b4, b5, z=(0.01, 0.085))
+    line6 = n.connect_buses(b5, b7, z=(0.032, 0.161))
+    line5 = n.connect_buses(b4, b6, z=(0.017, 0.092))
+    line7 = n.connect_buses(b6, b9, z=(0.039, 0.17))
+    line8 = n.connect_buses(b7, b8, z=(0.0085, 0.072))
+    line3 = n.connect_buses(b3, b9, z=(0, 0.0586))
+    line9 = n.connect_buses(b8, b9, z=(0.0119, 0.1008))
+    line2 = n.connect_buses(b2, b7, z=(0, 0.0625))
+
+
+    n.set_slack_bus(b1)
+    return n
+    
+def create_wecc_9_bus_network_with_pq_buses():
+
+    b1 = PVBus(P=0.716, V=1.04, theta0=0)
+    b2 = PVBus(P=1.63, V=1.025)
+    b3 = PVBus(P=0.85, V=1.025)
+    b4 = Bus(shunt_y=(0, 0.5*0.176 + 0.5*0.158))
+    b5 = PQBus(P=1.25, Q=0.5, shunt_y=(0, 0.5*0.176 + 0.5*0.306))
+    b6 = PQBus(P=0.9, Q=0.3, shunt_y=(0, 0.5*0.158 + 0.5*0.358))
+    b7 = Bus(shunt_y=(0, 0.5*0.306 + 0.5*0.149))
+    b8 = PQBus(P=1, Q=0.35, shunt_y=(0, 0.5*0.149 + 0.5*0.209))
     b9 = Bus(shunt_y=(0, 0.5*0.358 + 0.5*0.209))
 
     n = PowerNetwork(buses=[b1, b2, b3, b4, b5, b6, b7, b8, b9])
@@ -161,20 +189,26 @@ class TestPowerNetwork(unittest.TestCase):
 
 
     def test_solve_power_flow(self):
-        network = create_wecc_9_bus_network()
+        def do_test(network_to_test):
+            actual_final_states = network_to_test.solve_power_flow(optimal_ordering=False)
+            assert_array_almost_equal(actual_final_states, expected_final_states, 8)
+            
+            network_to_test.reset_voltages_to_flat_profile()
+            
+            actual_final_states_optimal_ordering = network_to_test.solve_power_flow(optimal_ordering=True)
+
+            assert_array_almost_equal(actual_final_states_optimal_ordering, expected_final_states_optimal_ordering, 8)
+            
+        network0 = create_wecc_9_bus_network()
+        network1 = create_wecc_9_bus_network_with_pq_buses()
 
         expected_final_states = genfromtxt('resources/tests/wecc9_final_states.csv', delimiter=',')
-        expected_final_states_optimal_ordering = genfromtxt('resources/tests/wecc9_final_states_optimal_ordering.csv', delimiter=',')
+        expected_final_states_optimal_ordering = genfromtxt('resources/tests/wecc9_final_states_optimal_ordering.csv',
+                                                            delimiter=',')
+        
+        do_test(network0)
+        do_test(network1)
 
-        actual_final_states = network.solve_power_flow(optimal_ordering=False)
-
-        assert_array_almost_equal(actual_final_states, expected_final_states, 8)
-
-        network.reset_voltages_to_flat_profile()
-
-        actual_final_states_optimal_ordering = network.solve_power_flow(optimal_ordering=True)
-
-        assert_array_almost_equal(actual_final_states_optimal_ordering, expected_final_states_optimal_ordering, 8)
     
 if __name__ == '__main__':
     unittest.main()

@@ -5,7 +5,7 @@ from power_network_helper_functions import fp_fq_helper, connected_bus_helper, j
 
 from nodes import Bus, Node
 
-from nodes.loads import ConstantPowerLoad, Load, PassiveLoad
+from nodes.loads import ConstantPowerLoad, Load, PassiveLoad, PQBus
 from nodes.sources import DGR, PVBus, SynchronousDGR
 
 from tests.test_power_network import TestPowerNetwork

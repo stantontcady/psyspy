@@ -1,21 +1,21 @@
 #!/usr/bin/env python
 
-from model_components import Bus, ConstantPowerLoad, PowerNetwork, PVBus
+from model_components import Bus, ConstantPowerLoad, PowerNetwork, PQBus, PVBus
 from IPython import embed
 
 
-la = ConstantPowerLoad(P=1.25, Q=0.5) # Station A
-lb = ConstantPowerLoad(P=0.9, Q=0.3) # Station B
-lc = ConstantPowerLoad(P=1, Q=0.35) # Station C
+# la = ConstantPowerLoad(P=1.25, Q=0.5) # Station A
+# lb = ConstantPowerLoad(P=0.9, Q=0.3) # Station B
+# lc = ConstantPowerLoad(P=1, Q=0.35) # Station C
 
 b1 = PVBus(P=0.716, V=1.04, theta0=0)
 b2 = PVBus(P=1.63, V=1.025)
 b3 = PVBus(P=0.85, V=1.025)
 b4 = Bus(shunt_y=(0, 0.5*0.176 + 0.5*0.158))
-b5 = Bus(loads=la, shunt_y=(0, 0.5*0.176 + 0.5*0.306))
-b6 = Bus(loads=lb, shunt_y=(0, 0.5*0.158 + 0.5*0.358))
+b5 = PQBus(P=1.25, Q=0.5, shunt_y=(0, 0.5*0.176 + 0.5*0.306))
+b6 = PQBus(P=0.9, Q=0.3, shunt_y=(0, 0.5*0.158 + 0.5*0.358))
 b7 = Bus(shunt_y=(0, 0.5*0.306 + 0.5*0.149))
-b8 = Bus(loads=lc, shunt_y=(0, 0.5*0.149 + 0.5*0.209))
+b8 = PQBus(P=1, Q=0.35, shunt_y=(0, 0.5*0.149 + 0.5*0.209))
 b9 = Bus(shunt_y=(0, 0.5*0.358 + 0.5*0.209))
 
 n = PowerNetwork(buses=[b1, b2, b3, b4, b5, b6, b7, b8, b9])
