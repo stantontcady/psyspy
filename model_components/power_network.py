@@ -2,20 +2,18 @@ from itertools import count
 from operator import itemgetter
 from os.path import join as path_join
 from math import sin, cos
-from tempfile import mkdtemp
 
-from joblib import Parallel, delayed, load, dump, Memory
-from numpy import append, array, zeros, frompyfunc, hstack, set_printoptions, inf, memmap
+from joblib import Parallel, delayed
+from numpy import append, array, zeros, frompyfunc, set_printoptions, inf
 from numpy.linalg import norm, cond
-from scipy.sparse import lil_matrix, csr_matrix, diags
+from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import spsolve
 
 from power_line import PowerLine
-from power_network_helper_functions import fp_fq_helper, connected_bus_helper, jacobian_hij_helper, jacobian_nij_helper, jacobian_kij_helper, jacobian_lij_helper, jacobian_diagonal_helper, compute_apparent_power_injected_from_network, compute_jacobian_row_by_bus
+from power_network_helper_functions import fp_fq_helper, connected_bus_helper, jacobian_hij_helper, jacobian_nij_helper, \
+                                           jacobian_kij_helper, jacobian_lij_helper, jacobian_diagonal_helper, \
+                                           compute_apparent_power_injected_from_network, compute_jacobian_row_by_bus
 from simulation_resources import NewtonRhapson
-
-
-from IPython import embed
 
 
 class PowerNetwork(object):

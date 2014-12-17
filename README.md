@@ -10,7 +10,7 @@ PowerPy was designed to allow for intuitive, yet powerful representations of pow
 ###Node###
 The most basic component in a PowerPy power network is the node.  It has many low-level methods that are shared among higher-level objects.  Additionally, it has two properties: *V* and *theta* which correspond to the voltage magnitude and angle at the node.  While the *Node* object is the most basic component, it is discussed here strictly to illustrate the hierarchy among the model components in PowerPy and should not be used as a standalone object.
 
-An example node instantiation is shown below; note that if the initial voltage magnitude and angle are omitted, they will be defaulted to *V0*=1 per unit and *theta0*=0 radians (these defaults are also true for all objects that are derived from the *Node* class).
+An example node instantiation with the default arguments is shown below; note that if the initial voltage magnitude and angle are omitted, they will be defaulted to *V0*=1 per unit and *theta0*=0 radians (these defaults are also true for all objects that are derived from the *Node* class).
 
 ```python
 n = Node(V0=None, theta0=None)
@@ -37,14 +37,14 @@ b1 = Bus(shunt_y=(a, b))
 ```
 
 ####PVBus####
-Building upon the *Bus* class, PowerPy has a *PVBus* class intended strictly to be used for static load flow calculations.  As the name implies, instances of the *PVBus* class represent constant power, constant voltage magnitude buses, i.e., generation buses, for the purposes of power flow computations.  An instance of the *PVBus* class can be instantiated with the specified power output and voltage magnitude, as well as the initial voltage angle and shunt impedance and/or admittance.  An example is given below.
+Building upon the *Bus* class, PowerPy has a *PVBus* class intended strictly to be used for static load flow calculations.  As the name implies, instances of the *PVBus* class represent constant power, constant voltage magnitude buses, i.e., generation buses, for the purposes of power flow computations.  An instance of the *PVBus* class can be instantiated with the specified power output and voltage magnitude, as well as the initial voltage angle and shunt impedance and/or admittance.  An example with the default arguments is given below (note that if *P* and *V* are not supplied, they will be defaulted to 0 and 1 per unit, respectively).
 
 ```python
 b2 = PVBus(P=None, V=None, theta0=None, shunt_z=(), shunt_y=())
 ```
 
 ####PQBus####
-Similar to the *PVBus* class, PowerPy PowerPy has a *PQBus* class that extends the basic *Bus* class and is intended strictly to be used for static load flow calculations.  As the name implies, instances of the *PQBus* class represent constant real and reactive power load (or generation) buses for the purposes of power flow computations.  An instance of the *PQBus* class can be instantiated with the specified real and reactive power draw (or generation if negative), as well as the initial voltage angle and shunt impedance and/or admittance.  It should be noted that the *PQBus* class is simply a convenient wrapper around the standard *Bus* class with an *ConstantPowerLoad* class (see below for details) created and attached to the bus upon instantiation.  That is, the following two examples are equivalent with respect to the power flow analysis.
+Similar to the *PVBus* class, PowerPy has a *PQBus* class that extends the basic *Bus* class and is intended strictly to be used for static load flow calculations.  As the name implies, instances of the *PQBus* class represent constant real and reactive power load (or generation) buses for the purposes of power flow computations.  An instance of the *PQBus* class can be instantiated with the specified real and reactive power draw (or generation, if negative), as well as the initial voltage angle and shunt impedance and/or admittance.  It should be noted that the *PQBus* class is simply a convenient wrapper around the standard *Bus* class with an instance of the *ConstantPowerLoad* class (see below for details) created and attached to the bus upon instantiation.  That is, the following two examples are equivalent with respect to the power flow analysis.
 
 ```python
 b3 = PQBus(P=None, Q=None, V0=None, theta0=None, shunt_z=(), shunt_y=())
@@ -53,17 +53,23 @@ l0 = ConstantPowerLoad(P=None, Q=None, V0=None, theta0=None)
 b4 = Bus(loads=l0, V0=None, theta0=None, shunt_z=(), shunt_y=())
 ```
 
+Note that if *P* and *Q* are omitted, they will both be defaulted to 0.
+
 ###Load###
 A *Load* superclass is defined that effectively inherits all the properties and methods of the *Node* class without any additions. It's purpose is to provide a basis for other, more specific load models which are described below.
 
 ####ConstantPowerLoad####
-An instance of the *ConstantPowerLoad* class models a load that draws a constant real and reactive power, irrespective of the states of the power network.  In classic load flow analysis, an instance of the *ConstantPowerLoad* class is equivalent to a P-Q bus.  Like the *Node* class from which it is derived, an instance of the *ConstantPowerLoad* class can be initialized with a voltage magnitude and angle, *V0* and *theta0*.  Additionally, a constant real and reactive power can be specified (in per unit) upon instantiation; these values can also be changed using the *change_real_and_reactive_power* method.  An example instantiation and change of P and Q values is illustrated below.
+An instance of the *ConstantPowerLoad* class models a load that draws a constant real and reactive power, irrespective of the states of the power network.  In classic load flow analysis, an instance of the *ConstantPowerLoad* class is equivalent to a PQ bus.  Like the *Node* class from which it is derived, an instance of the *ConstantPowerLoad* class can be initialized with a voltage magnitude and angle, *V0* and *theta0*.  Additionally, a constant real and reactive power can be specified (in per unit) upon instantiation; these values can also be changed using the *change_real_and_reactive_power* method.  An example instantiation and change of P and Q values is illustrated below.
 
 ```python
 l1 = ConstantPowerLoad(P=None, Q=None, V0=None, theta0=None)
 
 l1.change_real_and_reactive_power(new_P=1.0, new_Q=0.4)
 ```
+
+###DGR###
+
+####SynchronousDGR####
 
 ##Static Simulation##
 PowerPy is capable of performing static 
