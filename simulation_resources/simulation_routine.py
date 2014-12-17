@@ -9,13 +9,13 @@ from IPython import embed
 
 class SimulationRoutine(object):
     
-    def __init__(self, power_network, simulation_time, system_changes=None, time_step=0.001, power_flow_tolerance=0.00001):
+    def __init__(self, power_network, simulation_time, system_changes=None, time_step=0.001, power_flow_tolerance=0.0001):
         
         self.network = power_network
+        self.network.set_solver_tolerance(power_flow_tolerance)
         self.simulation_time = simulation_time
         self.time_step = time_step
         self.num_simulation_steps = int(float(simulation_time)/float(time_step)) + 1
-        self.power_flow_tolerance = power_flow_tolerance
         self.time_vector = empty(self.num_simulation_steps)
         
         self.numerical_method = RungeKutta45(time_step)
@@ -78,13 +78,10 @@ class SimulationRoutine(object):
         dynamic_dgr_buses = self.network.get_dynamic_dgr_buses()
         # need to make each bus with a dynamic generator attached act like a PV bus to solve the initial power flow
         for dynamic_dgr_bus in dynamic_dgr_buses:
-            # this is easily parallelizable
             dynamic_dgr_bus.make_temporary_pv_bus()
 
-        _ = self.network.solve_power_flow(tolerance=self.power_flow_tolerance, append=False, force_static_var_recompute=True)
+        _ = self.network.solve_power_flow(append=False, force_static_var_recompute=True)
         
-        
-        # these can be parallelized
         for dynamic_dgr_bus in dynamic_dgr_buses:
             Pnetwork, Qnetwork = self.network.compute_apparent_power_injected_from_network(dynamic_dgr_bus)
             dynamic_dgr_bus.dgr.initialize_states(Pnetwork, Qnetwork)
@@ -101,7 +98,6 @@ class SimulationRoutine(object):
         reference_angle = reference_dgr_states['d']
         self.network.shift_bus_voltage_angles(reference_angle)
         for dynamic_dgr_bus in dynamic_dgr_buses:
-            # this is easily parallelizable
             dynamic_dgr_bus.dgr.shift_initial_torque_angle(reference_angle)
             dynamic_dgr_bus.dgr.set_reference_angle(reference_angle)
         
@@ -138,5 +134,9 @@ class SimulationRoutine(object):
             reference_bus.dgr.update_states(updated_states)
 
             # solve power flow without slack bus, make sure to leave append=True (this is the default option), tolerance=self.power_flow_tolerance
-            _ = self.network.solve_power_flow(tolerance=self.power_flow_tolerance,
-                                              force_static_var_recompute=force_static_var_recompute)
+            if k == 0:
+                append = False
+            else:
+                append = True
+            _ = self.network.solve_power_flow(force_static_var_recompute=force_static_var_recompute,
+                                              append=append)

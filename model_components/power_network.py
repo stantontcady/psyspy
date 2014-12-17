@@ -18,13 +18,13 @@ from simulation_resources import NewtonRhapson
 
 class PowerNetwork(object):
     
-    def __init__(self, buses=[], power_lines=[]):
+    def __init__(self, buses=[], power_lines=[], solver_tolerance=0.00001):
         self.buses = []
         self.buses.extend(buses)
         self.power_lines = []
         self.power_lines.extend(power_lines)
         set_printoptions(linewidth=175)
-        self.solver = NewtonRhapson(tolerance=0.00001)
+        self.solver = NewtonRhapson(tolerance=solver_tolerance)
 
         
     def __repr__(self):
@@ -34,6 +34,10 @@ class PowerNetwork(object):
         for power_line in self.power_lines:
             output += power_line.repr_helper(simple=True, indent_level_increment=2)
         return output
+
+
+    def set_solver_tolerance(self, new_tolerance):
+        return self.solver.set_tolerance(new_tolerance)
 
         
     def add_bus(self, bus):
@@ -226,8 +230,7 @@ class PowerNetwork(object):
             (gi, bi) = bus_i.shunt_y
             G[i, i] += gi
             B[i, i] -= bi    
-                
-        
+
         return lil_matrix(G), lil_matrix(B)
         
     
@@ -256,7 +259,7 @@ class PowerNetwork(object):
         
         if G is None or B is None:
             raise AttributeError('missing conductance or susceptance matrix for this power network')
-            
+
         return G, B
         
         
@@ -328,7 +331,6 @@ class PowerNetwork(object):
             return reference_bus_id
         except AttributeError:
             return None
-            # raise AttributeError('no voltage angle reference bus selected for this power network')
 
 
     def get_voltage_angle_reference_bus(self):
@@ -475,16 +477,12 @@ class PowerNetwork(object):
 
         J = zeros((n, n))
         
-        Parallel()(delayed(compute_jacobian_row_by_bus)(J, index,
-                                                        is_slack_bus_list, is_pv_bus_list,
-                                                        has_dynamic_dgr_list, connected_bus_ids_list,
-                                                        jacobian_indices,
-                                                        admittance_matrix_index_bus_id_mapping,
-                                                        interconnection_conductances_list,
-                                                        interconnection_susceptances_list,
-                                                        self_conductance_list, self_susceptance_list,
-                                                        voltage_mag_list, voltage_angle_list,
-                                                        dgr_derivatives) for index, _ in enumerate(admittance_matrix_index_bus_id_mapping))
+        Parallel()(delayed(compute_jacobian_row_by_bus)
+                   (J, index, is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
+                    jacobian_indices, admittance_matrix_index_bus_id_mapping,
+                    interconnection_conductances_list, interconnection_susceptances_list,
+                    self_conductance_list, self_susceptance_list, voltage_mag_list, voltage_angle_list,
+                    dgr_derivatives) for index, _ in enumerate(admittance_matrix_index_bus_id_mapping))
 
 
         return lil_matrix(J)
@@ -595,7 +593,7 @@ class PowerNetwork(object):
                 interconnection_conductances, interconnection_susceptances, self_conductance, self_susceptance)
 
 
-    def solve_power_flow(self, tolerance=0.00001, optimal_ordering=True, append=True, force_static_var_recompute=False):
+    def solve_power_flow(self, optimal_ordering=True, append=True, force_static_var_recompute=False):
         # need to check if ordering has changed since admittance matrix was last generated
         if optimal_ordering != self.is_admittance_matrix_index_bus_id_mapping_optimal():
             self.save_admittance_matrix(optimal_ordering=optimal_ordering)
@@ -607,6 +605,7 @@ class PowerNetwork(object):
             # create a new column in each of the nodes' states to append the solution from power flow
             x = self._get_current_voltage_vector()
             self._save_new_voltages_from_vector(x, replace=False)
+
             
         x_root, k = self.solver.find_roots(get_current_states_method=self._get_current_voltage_vector,
                                            save_updated_states_method=self._save_new_voltages_from_vector,

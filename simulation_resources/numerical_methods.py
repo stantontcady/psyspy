@@ -37,6 +37,15 @@ class NewtonRhapson(object):
     
     def __init__(self, tolerance):
         self.tolerance = tolerance
+
+
+    def set_tolerance(self, new_tolerance):
+        self.tolerance = new_tolerance
+        return self.get_tolerance()
+
+
+    def get_tolerance(self):
+        return self.tolerance
         
     
     def find_roots(self,
