@@ -98,10 +98,6 @@ class Bus(Node):
             pass
         
         return object_info
-        
-
-    def get_type(self):
-        return self._bus_type
 
 
     def get_bus_id(self):

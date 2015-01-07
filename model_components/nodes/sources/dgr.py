@@ -11,9 +11,10 @@ class DGR(Node):
         
         self._dgr_id = self._dgr_ids.next() + 1
         
-        self._node_type = 'DGR'
+        self._node_type = 'dgr'
         
         self._temporary_pv_bus = False
+
         
     
     def make_temporary_pv_bus(self):

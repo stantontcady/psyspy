@@ -34,7 +34,42 @@ class PowerNetwork(object):
         for power_line in self.power_lines:
             output += power_line.repr_helper(simple=True, indent_level_increment=2)
         return output
+        
+    
+    def get_list_of_bus_ids(self):
+        bus_id_list = []
+        for bus in self.buses:
+            bus_id_list.append(bus.get_id())
+        return bus_id_list
 
+    
+    def get_list_of_bus_types(self):
+        bus_id_list = self.get_admittance_matrix_index_bus_id_mapping(suppress_exception=True)
+        if bus_id_list is None:
+            bus_id_list = self.get_list_of_bus_ids()
+        bus_type_list = frompyfunc(self.get_bus_type_by_id, 1, 1)(bus_id_list)
+        return bus_type_list
+    
+    
+    def has_pq_bus(self, bus_type_list=None):
+        return self._has_x_type_bus('pq_bus', bus_type_list)
+
+
+    def has_pv_bus(self, bus_type_list=None):
+        return self._has_x_type_bus('pq_bus', bus_type_list)
+
+
+    def _has_x_type_bus(self, type_to_match, bus_type_list=None):
+        if bus_type_list is None:
+            bus_type_list = self.get_list_of_bus_types()
+            
+        num_x_type_buses = sum([1 if bus_type == type_to_match else 0 for bus_type in bus_type_list])
+        
+        if num_x_type_buses == 0:
+            return False
+        
+        return num_x_type_buses
+    
 
     def set_solver_tolerance(self, new_tolerance):
         return self.solver.set_tolerance(new_tolerance)
@@ -81,15 +116,23 @@ class PowerNetwork(object):
             return self.buses[index_of_bus]
         except ValueError:
             return None
-
+            
         
+    def get_bus_type_by_id(self, bus_id):
+        bus = self.get_bus_by_id(bus_id)
+        if bus is None:
+            return None
+
+        return bus.get_node_type()
+
+
     def bus_in_network(self, bus):
         if self.get_bus_by_id(bus.get_id()) is None:
             return False
         else:
             return True
 
-            
+
     def get_bus_ids_ordered_by_incidence_count(self):
         bus_info = {}
         for power_line in self.power_lines:
@@ -185,11 +228,14 @@ class PowerNetwork(object):
         return admittance_matrix_index_bus_id_mapping    
 
 
-    def get_admittance_matrix_index_bus_id_mapping(self):
+    def get_admittance_matrix_index_bus_id_mapping(self, suppress_exception=False):
         try:
             admittance_matrix_index_bus_id_mapping = self.admittance_matrix_index_bus_id_mapping
         except AttributeError:
-            raise AttributeError('missing admittance matrix mapping for this power network')
+            if suppress_exception is True:
+                return None
+            else:
+                raise AttributeError('missing admittance matrix mapping for this power network')
         
         return admittance_matrix_index_bus_id_mapping['mapping']
 
@@ -451,7 +497,7 @@ class PowerNetwork(object):
             
             if is_pv_bus_list[index] is False:
                 function_vector = append(function_vector, fq)
-        
+
         return function_vector
 
 
@@ -607,7 +653,7 @@ class PowerNetwork(object):
             self._save_new_voltages_from_vector(x, replace=False)
 
             
-        x_root, k = self.solver.find_roots(get_current_states_method=self._get_current_voltage_vector,
+        x_root, _ = self.solver.find_roots(get_current_states_method=self._get_current_voltage_vector,
                                            save_updated_states_method=self._save_new_voltages_from_vector,
                                            get_jacobian_method=self._generate_jacobian_matrix, 
                                            get_function_vector_method=self._generate_function_vector)

@@ -6,8 +6,6 @@ from scipy.sparse import lil_matrix
 
 from model_components import Bus, ConstantPowerLoad, Node, PowerNetwork, PQBus, PVBus
 
-from IPython import embed
-
 
 def create_wecc_9_bus_network():
     la = ConstantPowerLoad(P=1.25, Q=0.5) # Station A

@@ -5,7 +5,7 @@ from IPython import embed
 from matplotlib.pylab import plot, figure, show, ylim
 from numpy import amax, amin
 
-from model_components import Bus, ConstantPowerLoad, PowerNetwork, SynchronousDGR
+from model_components import Bus, ConstantPowerLoad, PowerNetwork, SynchronousDGR, PQBus
 from simulation_resources import SimulationRoutine, TemporaryConstantPowerLoadChange, PermanentConstantPowerLoadChange, TemporaryPowerLineImpedanceChange
 
 la = ConstantPowerLoad(P=1.25, Q=0.5) # Station A
@@ -40,8 +40,9 @@ b6 = Bus(loads=lb, shunt_y=(0, 0.5*0.158 + 0.5*0.358))
 b7 = Bus(shunt_y=(0, 0.5*0.306 + 0.5*0.149))
 b8 = Bus(loads=lc, shunt_y=(0, 0.5*0.149 + 0.5*0.209))
 b9 = Bus(shunt_y=(0, 0.5*0.358 + 0.5*0.209))
+b10 = PQBus()
 
-n = PowerNetwork(buses=[b1, b2, b3, b4, b5, b6, b7, b8, b9])
+n = PowerNetwork(buses=[b1, b2, b3, b4, b5, b6, b7, b8, b9, b10])
 
 line1 = n.connect_buses(b1, b4, z=(0, 0.0576))
 line4 = n.connect_buses(b4, b5, z=(0.01, 0.085))

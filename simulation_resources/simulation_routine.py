@@ -11,7 +11,11 @@ class SimulationRoutine(object):
     
     def __init__(self, power_network, simulation_time, system_changes=None, time_step=0.001, power_flow_tolerance=0.0001):
         
-        self.network = power_network
+        if self.has_nondynamic_bus_types(power_network) is False:
+            self.network = power_network
+        else:
+            raise TypeError('power network cannot contain any buses of type PVBus or PQBus')
+
         self.network.set_solver_tolerance(power_flow_tolerance)
         self.simulation_time = simulation_time
         self.time_step = time_step
@@ -33,7 +37,17 @@ class SimulationRoutine(object):
                         continue
                 self.add_system_change(system_change)
 
-                
+    
+    def has_nondynamic_bus_types(self, network):
+        list_of_bus_types = network.get_list_of_bus_types()
+        if network.has_pq_bus(list_of_bus_types) is not False:
+            return True
+        if network.has_pv_bus(list_of_bus_types) is not False:
+            return True
+            
+        return False
+
+
     def add_system_change(self, system_change):
         if system_change.start_time > (self.simulation_time - self.time_step):
             print 'Cannot add system change, the start time is after end of simulation or in last time step.'
