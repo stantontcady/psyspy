@@ -138,7 +138,7 @@ class SynchronousDGR(DGR):
         return method(reference_angular_velocity)
         
     
-    def get_real_reactive_power_derivatives(self, V, theta):
+    def get_real_reactive_power_derivatives(self, Vpolar):
         generator_model = self.check_for_generator_model()
         if generator_model is False:
             raise AttributeError('No generator model specified')
@@ -161,29 +161,11 @@ class SynchronousDGR(DGR):
         if dq_out_d_v_model is False:
             raise AttributeError('No dpout/dV model specified for %s model' % generator_model_name)
         
+        V, theta = Vpolar
+        
         dp_out_d_theta = dp_out_d_theta_model(V, theta)
         dp_out_d_v = dp_out_d_v_model(V, theta)
         dq_out_d_theta = dq_out_d_theta_model(V, theta)
         dq_out_d_v = dq_out_d_v_model(V, theta)
         
         return dp_out_d_theta, dp_out_d_v, dq_out_d_theta, dq_out_d_v
-
-
-    def check_for_generator_model(self):
-        try:
-            model = self.generator_model
-        except AttributeError:
-            return False
-        
-        return model
-
-
-    def _check_for_generator_model_method(self, method_name):
-        try:
-            model = self.check_for_generator_model()
-            if model is not False:
-                method = getattr(model, method_name)
-                return method
-        except AttributeError:
-            pass
-        return False

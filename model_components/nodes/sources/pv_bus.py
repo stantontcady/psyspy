@@ -18,6 +18,9 @@ class PVBus(Bus):
         set_initial_conditions(self, 'Q')
         
         self._node_type = 'pv_bus'
+        
+        self.voltage_magnitude_static = True
+        self.voltage_angle_static = False
 
             
     def __repr__(self):

@@ -5,6 +5,7 @@ from numpy import append, nan
 
 from .node import Node
 from model_components import impedance_admittance_wrangler
+# from power_network_helper_functions import jacobian_hij_helper, jacobian_nij_helper, jacobian_kij_helper, jacobian_lij_helper
 
 from IPython import embed
 
@@ -61,6 +62,7 @@ class Bus(Node):
                 
         self.shunt_y = impedance_admittance_wrangler(shunt_z, shunt_y)
 
+
             
     def __repr__(self):
         return '\n'.join([line for line in self.repr_helper()])
@@ -110,13 +112,6 @@ class Bus(Node):
                 return load
         
         return None
-        
-    
-    # def is_temporary_pv_bus(self):
-    #     try:
-    #         return self.temporary_pv_bus
-    #     except AttributeError:
-    #         return False
 
 
     def add_load(self, load):
@@ -299,12 +294,16 @@ class Bus(Node):
         
 
     def is_pv_bus(self):
-        if self.get_node_type() == 'pv_bus':
-            return True
-        elif self.is_temporary_pv_bus() is True:
-            return True
-
-        return False
+        """
+            simply a wrapper around voltage the is_static method for voltage magnitude
+        """
+        return self.is_voltage_magnitude_static()
+        # if self.get_node_type() == 'pv_bus':
+        #     return True
+        # elif self.is_temporary_pv_bus() is True:
+        #     return True
+        #
+        # return False
 
 
     def has_dynamic_dgr_attached(self):
@@ -316,18 +315,16 @@ class Bus(Node):
 
 
     def make_temporary_pv_bus(self):
-        if self.has_dynamic_dgr_attached() is True:
-            self.dgr.make_temporary_pv_bus()
+        return self.make_voltage_magnitude_static()
 
 
     def stop_temporary_pv_bus(self):
-        if self.has_dynamic_dgr_attached() is True:
-            self.dgr.stop_temporary_pv_bus()
+        return self.stop_voltage_magnitude_static()
 
 
     def is_temporary_pv_bus(self):
-        if self.has_dynamic_dgr_attached() is True:
-            return self.dgr.is_temporary_pv_bus()
+        if self.has_dynamic_dgr_attached() is True and self.is_pv_bus() is True:
+            return True
         return False
 
 
@@ -358,3 +355,117 @@ class Bus(Node):
                     
                 
         return P, Q
+
+
+    def is_voltage_magnitude_static(self):
+        """
+        Indicates whether or not the voltage magnitude for this bus should remain constant for static simulations, i.e.,
+        power flow computations.  The voltage_magnitude_is_static property should be set by the subclass derived from
+        the Bus superclass; if this property is not set, it defaults to False.
+
+        Args:
+            self: the instance of the bus object
+
+        Returns:
+            A boolean value indicating whether or not the voltage magnitude for this bus should remain constant for static
+            simulations. The default is False.
+            
+            True: if the voltage magnitude should remain constant.
+            False: otherwise
+
+        """
+        try:
+            return self.voltage_magnitude_static
+        except AttributeError:
+            return False
+
+
+    def is_voltage_angle_static(self):
+        """
+        Indicates whether or not the voltage angle for this bus should remain constant for static simulations, i.e.,
+        power flow computations.  The voltage_angle_is_static property should be set by the subclass derived from
+        the Bus superclass; if this property is not set, it defaults to False.
+
+        Args:
+            self: the instance of the bus object
+
+        Returns:
+            A boolean value indicating whether or not the voltage angle for this bus should remain constant for static
+            simulations. The default is False.
+            
+            True: if the voltage angle should remain constant.
+            False: otherwise
+
+        """
+        try:
+            return self.voltage_angle_static
+        except AttributeError:
+            return False
+            
+    
+    def is_voltage_static(self):
+        return self.is_voltage_magnitude_static(), self.is_voltage_angle_static()
+
+
+    def make_voltage_magnitude_static(self):
+        self.voltage_magnitude_static = True
+        return self.is_voltage_magnitude_static()
+
+
+    def make_voltage_angle_static(self):
+        self.voltage_angle_static = True
+        return self.is_voltage_angle_static()
+
+
+    def make_voltage_static(self):
+        _ = self.make_voltage_magnitude_static()
+        _ = self.make_voltage_angle_static()
+        return self.is_voltage_static()
+
+
+    def stop_voltage_magnitude_static(self):
+        self.voltage_magnitude_static = False
+        return self.is_voltage_magnitude_static()
+
+
+    def stop_voltage_angle_static(self):
+        self.voltage_angle_static = False
+        return self.is_voltage_angle_static()
+
+
+    def stop_voltage_static(self):
+        _ = self.stop_voltage_magnitude_static()
+        _ = self.stop_voltage_angle_static()
+        return self.is_voltage_static()
+
+
+    def get_jacobian_block(self, Yij, Vpolar_i=None, Vpolar_i_static=None, Vpolar_j=None, Vpolar_j_static=None):
+        pass
+        # # admittance is stored as a tuple: conductance, susceptance
+        # Gij, Bij = Yij
+        # # bus i (and its associated properties) is this bus, bus j is connected bus for which this block is being computed
+        # # The properties for bus i are optional to allow for parallelization of Jacobian computation
+        # if Vpolar_i is None:
+        #     Vpolar_i = self.get_current_voltage()
+        #
+        # if Vpolar_i_static is None:
+        #     Vpolar_i_static = self.voltage_is_static()
+        # # stored as a tuple where the elements indicate if the magnitude and angle are static, respectively
+        # Vi_static, thetai_static = Vpolar_i_static
+        #
+        # # if either of the properties for bus j are omitted, it's assumed that j = i, i.e., the self block is being computed
+        # if Vpolar_j is None or Vpolar_j_static is None:
+        #     self_block = True
+        #     Vpolar_j = Vpolar_i
+        #     Vj_static = Vi_static
+        #     thetaj_static = thetai_static
+        # else:
+        #     self_block = False
+        #
+        # # this block can be of size 1x1, 2x1, 1x2, or 2x2; default to 1x1
+        # num_rows = 1
+        # num_cols = 1
+        #
+        # if self_block is False:
+        #     H = jacobian_hij_helper(Vpolar_i, Vpolar_j, Gij, Bij)
+                    

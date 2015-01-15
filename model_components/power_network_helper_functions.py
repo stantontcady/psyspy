@@ -1,64 +1,81 @@
 from math import cos, sin
 
 
-def fp_fq_helper(P_net, Q_net, Vi, thetai, Gii, Bii,
+def fp_fq_helper(P_net, Q_net, Vpolar_i, Yii,
                   admittance_matrix_index_bus_id_mapping,
-                  voltage_mag_list, voltage_angle_list,
+                  voltage_list,
                   connected_bus_ids,
-                  interconnection_conductances_list,
-                  interconnection_susceptances_list):
+                  interconnection_admittance_list):
     
-    (P_network, Q_network) = compute_apparent_power_injected_from_network(Vi, thetai, Gii, Bii,
+    (P_network, Q_network) = compute_apparent_power_injected_from_network(Vpolar_i, Yii,
                                                                           admittance_matrix_index_bus_id_mapping,
-                                                                          voltage_mag_list, voltage_angle_list,
-                                                                          connected_bus_ids,
-                                                                          interconnection_conductances_list,
-                                                                          interconnection_susceptances_list)
+                                                                          voltage_list, connected_bus_ids,
+                                                                          interconnection_admittance_list)
 
     return P_network - P_net, Q_network - Q_net
     
                
-def connected_bus_helper(thetai, Vk, thetak, Gik, Bik, real_trig_function, imag_trig_function, imag_multipler=1):
-    return Vk*(Gik*real_trig_function(thetai - thetak) + imag_multipler*Bik*imag_trig_function(thetai - thetak))
+def connected_bus_helper(Vpolar_i, Vpolar_j, Yij, real_trig_function, imag_trig_function, imag_multipler=1):
+    _, thetai = Vpolar_i
+    Vj, thetaj = Vpolar_j
+    return Vj*trig_helper(thetai, thetaj, Yij, real_trig_function, imag_trig_function, imag_multipler)
 
 
-def jacobian_hij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Lij=None):
+def trig_helper(thetai, thetaj, Yij, real_trig_function, imag_trig_function, imag_multipler=1):
+    Gij, Bij = Yij
+    return Gij*real_trig_function(thetai - thetaj) + imag_multipler*Bij*imag_trig_function(thetai - thetaj)
+
+
+def jacobian_hij_helper(Vpolar_i, Vpolar_j, Yij, Lij=None):
     if Lij is not None:
+        Vj, _ = Vpolar_j
         return Lij*Vj
     else:
-        return Vi*Vj*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
+        Vi, thetai = Vpolar_i
+        Vj, thetaj = Vpolar_j
+        return Vi*Vj*trig_helper(thetai, thetaj, Yij, sin, cos)
 
 
-def jacobian_nij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Kij=None):
+def jacobian_nij_helper(Vpolar_i, Vpolar_j, Yij, Kij=None):
     if Kij is not None:
+        Vj, _ = Vpolar_j
         return -1*Kij/Vj
     else:
-        return Vi*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
+        Vi, thetai = Vpolar_i
+        _, thetaj = Vpolar_j
+        return Vi*trig_helper(thetai, thetaj, Yij, cos, sin, -1)
 
 
-def jacobian_kij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Nij=None):
+def jacobian_kij_helper(Vpolar_i, Vpolar_j, Yij, Nij=None):
     if Nij is not None:
+        Vj, _ = Vpolar_j
         return -1*Nij*Vj
     else:
-        return -1*Vi*Vj*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
+        Vi, thetai = Vpolar_i
+        Vj, thetaj = Vpolar_j
+        return -1*Vi*Vj*trig_helper(thetai, thetaj, Yij, cos, sin, -1)
 
 
-def jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Hij=None):
+def jacobian_lij_helper(Vpolar_i, Vpolar_j, Yij, Hij=None):
     if Hij is not None:
+        Vj, _ = Vpolar_j
         return Hij/Vj
     else:
-        return Vi*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
+        Vi, thetai = Vpolar_i
+        _, thetaj = Vpolar_j
+        return Vi*trig_helper(thetai, thetaj, Yij, sin, cos)
 
 
-def jacobian_diagonal_helper(Vi, thetai, Gii, Bii, is_pv_bus,
-                              admittance_matrix_index_bus_id_mapping,
-                              voltage_mag_list, voltage_angle_list,
-                              connected_bus_ids,
-                              interconnection_conductances_list,
-                              interconnection_susceptances_list):
+def jacobian_diagonal_helper(Vpolar_i, Yii, voltage_is_static,
+                             admittance_matrix_index_bus_id_mapping,
+                             voltage_list, connected_bus_ids,
+                             interconnection_admittance_list):
     
-    Hii = 0                    
-    if is_pv_bus is False:
+    Vi, _ = Vpolar_i
+    Hii = 0
+    # if pv bus, voltage magnitude will be static, voltage magnitude static is first element of tuple 
+    if is_pv_bus(voltage_is_static) is False:
+        Gii, Bii = Yii
         Nii = 2*Gii*Vi
         Kii = 0
         Lii = 2*Bii*Vi
@@ -69,82 +86,84 @@ def jacobian_diagonal_helper(Vi, thetai, Gii, Bii, is_pv_bus,
 
     for index_k, bus_id_k in enumerate(connected_bus_ids):           
         admittance_matrix_index_k = admittance_matrix_index_bus_id_mapping.index(bus_id_k)
-        Vk = voltage_mag_list[admittance_matrix_index_k]
-        thetak = voltage_angle_list[admittance_matrix_index_k]
-        Gik = interconnection_conductances_list[index_k]
-        Bik = interconnection_susceptances_list[index_k]
+        Vpolar_k = voltage_list[admittance_matrix_index_k]
+        Yik = interconnection_admittance_list[index_k]
         
-        H_L_ii = connected_bus_helper(thetai, Vk, thetak, Gik, Bik, sin, cos)
+        H_L_ii = connected_bus_helper(Vpolar_i, Vpolar_k, Yik, sin, cos)
         
         Hii += H_L_ii
-        if is_pv_bus is False:
-            N_K_ii = connected_bus_helper(thetai, Vk, thetak, Gik, Bik, cos, sin, -1)
+        if is_pv_bus(voltage_is_static) is False:
+            N_K_ii = connected_bus_helper(Vpolar_i, Vpolar_k, Yik, cos, sin, -1)
             Nii += N_K_ii
             Kii += N_K_ii
             Lii += H_L_ii
 
     Hii = -1*Vi*Hii
-    if is_pv_bus is False:
+    if is_pv_bus(voltage_is_static) is False:
         Kii *= Vi
     
     return Hii, Nii, Kii, Lii
 
 
-def compute_apparent_power_injected_from_network(Vi, thetai, Gii, Bii,
+def compute_apparent_power_injected_from_network(Vpolar_i, Yii,
                                                  admittance_matrix_index_bus_id_mapping,
-                                                 voltage_mag_list, voltage_angle_list,
-                                                 connected_bus_ids,
-                                                 interconnection_conductances_list,
-                                                 interconnection_susceptances_list):
+                                                 voltage_list, connected_bus_ids,
+                                                 interconnection_admittance_list):
 
+    Vi, _ = Vpolar_i
+    Gii, Bii = Yii
     P = Gii*Vi
     Q = Bii*Vi
     for index_k, bus_id_k in enumerate(connected_bus_ids):
         admittance_matrix_index_k = admittance_matrix_index_bus_id_mapping.index(bus_id_k)
-        Vk = voltage_mag_list[admittance_matrix_index_k]
-        thetak = voltage_angle_list[admittance_matrix_index_k]
-        Gik = interconnection_conductances_list[index_k]
-        Bik = interconnection_susceptances_list[index_k]
+        Vpolar_k = voltage_list[admittance_matrix_index_k]
+        Yik = interconnection_admittance_list[index_k]
 
-        P += connected_bus_helper(thetai, Vk, thetak, Gik, Bik, cos, sin, -1)
-        Q += connected_bus_helper(thetai, Vk, thetak, Gik, Bik, sin, cos)
+        P += connected_bus_helper(Vpolar_i, Vpolar_k, Yik, cos, sin, -1)
+        Q += connected_bus_helper(Vpolar_i, Vpolar_k, Yik, sin, cos)
 
     P *= Vi
     Q *= Vi
     return P, Q
 
 
-def compute_jacobian_row_by_bus(J, index_i,
-                                is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
-                                jacobian_indices,
-                                admittance_matrix_index_bus_id_mapping,
-                                interconnection_conductances_list, interconnection_susceptances_list,
-                                self_conductance_list, self_susceptance_list,
-                                voltage_mag_list, voltage_angle_list, dgr_derivatives):
+def is_slack_bus(voltage_is_static):
+    if voltage_is_static[0] is True and voltage_is_static[1] is True:
+        return True
 
-    if is_slack_bus_list[index_i] is True:
+    return False
+    
+def is_pv_bus(voltage_is_static):
+    return voltage_is_static[0]
+
+
+def compute_jacobian_row_by_bus(J, index_i,
+                                voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list,
+                                jacobian_indices, admittance_matrix_index_bus_id_mapping,
+                                interconnection_admittance_list, self_admittance_list,
+                                voltage_list, dgr_derivatives):
+                                
+
+    # if voltage magnitude and angle are constant, this bus is not included in the jacboian
+    if is_slack_bus(voltage_is_static_list[index_i]) is True:
         return
     
-    Vi = voltage_mag_list[index_i]
-    thetai = voltage_angle_list[index_i]
-    Gii = self_conductance_list[index_i]
-    Bii = self_susceptance_list[index_i]
+    Vpolar_i = voltage_list[index_i]
+    Yii = self_admittance_list[index_i]
+
     
     connected_bus_ids = connected_bus_ids_list[index_i]
-    interconnection_conductances = interconnection_conductances_list[index_i]
-    interconnection_susceptances = interconnection_susceptances_list[index_i]
+    interconnection_admittance = interconnection_admittance_list[index_i]
     
-    Hii, Nii, Kii, Lii = jacobian_diagonal_helper(Vi, thetai, Gii, Bii, is_pv_bus_list[index_i],
+    Hii, Nii, Kii, Lii = jacobian_diagonal_helper(Vpolar_i, Yii, voltage_is_static_list[index_i],
                                                   admittance_matrix_index_bus_id_mapping,
-                                                  voltage_mag_list, voltage_angle_list,
-                                                  connected_bus_ids,
-                                                  interconnection_conductances,
-                                                  interconnection_susceptances)
+                                                  voltage_list, connected_bus_ids,
+                                                  interconnection_admittance)
     
     i = jacobian_indices[index_i]
     
     J[i, i] = Hii    
-    if is_pv_bus_list[index_i] is False:
+    if is_pv_bus(voltage_is_static_list[index_i]) is False:
         J[i+1, i] = Kii
         J[i, i+1] = Nii
         J[i+1, i+1] = Lii
@@ -157,24 +176,22 @@ def compute_jacobian_row_by_bus(J, index_i,
     
     for connected_bus_index_j, bus_id_j in enumerate(connected_bus_ids):
         index_j = admittance_matrix_index_bus_id_mapping.index(bus_id_j)
-        if is_slack_bus_list[index_j] is False:
+        if is_slack_bus(voltage_is_static_list[index_j]) is False:
             j = jacobian_indices[index_j]
 
-            Vj = voltage_mag_list[index_j]
-            thetaj = voltage_angle_list[index_j]
-            Gij = interconnection_conductances[connected_bus_index_j]
-            Bij = interconnection_susceptances[connected_bus_index_j]
+            Vpolar_j = voltage_list[index_j]
+            Yij = interconnection_admittance[connected_bus_index_j]
             
-            J[i, j] = jacobian_hij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Lij=None)
+            J[i, j] = jacobian_hij_helper(Vpolar_i, Vpolar_j, Yij, Lij=None)
 
-            if is_pv_bus_list[index_i] is False:
-                J[i+1, j] = jacobian_kij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Nij=None)
+            if is_pv_bus(voltage_is_static_list[index_i]) is False:
+                J[i+1, j] = jacobian_kij_helper(Vpolar_i, Vpolar_j, Yij, Nij=None)
                 Kij = J[i+1, j]
             else:
                 Kij = None
 
-            if is_pv_bus_list[index_j] is False:
-                if is_pv_bus_list[index_i] is False:
-                    J[i+1, j+1] = jacobian_lij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Hij=J[i, j])
+            if is_pv_bus(voltage_is_static_list[index_j]) is False:
+                if is_pv_bus(voltage_is_static_list[index_i]) is False:
+                    J[i+1, j+1] = jacobian_lij_helper(Vpolar_i, Vpolar_j, Yij, Hij=J[i, j])
 
-                J[i, j+1] = jacobian_nij_helper(Vi, thetai, Vj, thetaj, Gij, Bij, Kij=Kij)
+                J[i, j+1] = jacobian_nij_helper(Vpolar_i, Vpolar_j, Yij, Kij=Kij)

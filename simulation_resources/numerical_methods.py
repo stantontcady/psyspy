@@ -14,7 +14,7 @@ class RungeKutta45(object):
     def get_updated_states(self, current_states, incremental_state_method):
         dt = self.step_size
         
-        k1 = dt*incremental_state_method()
+        k1 = dt*incremental_state_method(current_states=current_states)
         k2 = dt*incremental_state_method(current_states=(current_states + 0.5*k1))
         k3 = dt*incremental_state_method(current_states=(current_states + 0.5*k2))
         k4 = dt*incremental_state_method(current_states=(current_states + k2))

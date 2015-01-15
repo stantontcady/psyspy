@@ -12,18 +12,22 @@ class DGR(Node):
         self._dgr_id = self._dgr_ids.next() + 1
         
         self._node_type = 'dgr'
+
+    def check_for_generator_model(self):
+        try:
+            model = self.generator_model
+        except AttributeError:
+            return False
         
-        self._temporary_pv_bus = False
-
-        
-    
-    def make_temporary_pv_bus(self):
-        self._temporary_pv_bus = True
+        return model
 
 
-    def stop_temporary_pv_bus(self):
-        self._temporary_pv_bus = False
-
-
-    def is_temporary_pv_bus(self):
-        return self._temporary_pv_bus
+    def _check_for_generator_model_method(self, method_name):
+        try:
+            model = self.check_for_generator_model()
+            if model is not False:
+                method = getattr(model, method_name)
+                return method
+        except AttributeError:
+            pass
+        return False

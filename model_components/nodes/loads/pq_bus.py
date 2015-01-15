@@ -19,6 +19,9 @@ class PQBus(Bus):
         self._pq_bus_id = self._pq_bus_ids.next() + 1
         
         self._node_type = 'pq_bus'
+        
+        self.voltage_magnitude_static = False
+        self.voltage_angle_static = False
 
             
     def __repr__(self):

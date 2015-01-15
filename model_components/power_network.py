@@ -14,7 +14,7 @@ from power_network_helper_functions import fp_fq_helper, connected_bus_helper, j
                                            jacobian_kij_helper, jacobian_lij_helper, jacobian_diagonal_helper, \
                                            compute_apparent_power_injected_from_network, compute_jacobian_row_by_bus
 from simulation_resources import NewtonRhapson
-
+from IPython import embed
 
 class PowerNetwork(object):
     
@@ -324,12 +324,9 @@ class PowerNetwork(object):
     def select_slack_bus(self):          
         slack_bus_id = None
         for bus in self.buses:
-            bus_id = bus.get_id()
             if bus.is_pv_bus() is True and slack_bus_id is None:
-                slack_bus_id = bus_id
-                break
+                return self.set_slack_bus(bus)
 
-            self.slack_bus_id = slack_bus_id
         return slack_bus_id
 
 
@@ -342,6 +339,8 @@ class PowerNetwork(object):
 
 
     def set_slack_bus(self, bus):
+        bus.voltage_magnitude_static = True
+        bus.voltage_angle_static = True
         self.slack_bus_id = bus.get_id()
         return self.slack_bus_id
 
@@ -466,36 +465,32 @@ class PowerNetwork(object):
         function_vector = array([])
         admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
 
-        (is_slack_bus_list, is_pv_bus_list, _, connected_bus_ids_list,
-         interconnection_conductances_list, interconnection_susceptances_list,
-         self_conductance_list, self_susceptance_list, _) = self._get_static_vars_list()
+        (voltage_is_static_list, _, connected_bus_ids_list, interconnection_admittance_list,
+         self_admittance_list, _) = self._get_static_vars_list()
 
-        (voltage_mag_list,
-         voltage_angle_list,
-         _) = self._get_varying_vars_list(admittance_matrix_index_bus_id_mapping)
+        voltage_list, _ = self._get_varying_vars_list(admittance_matrix_index_bus_id_mapping)
 
         for index, bus_id in enumerate(admittance_matrix_index_bus_id_mapping):
             
-            if is_slack_bus_list[index] is True:
+            voltage_magnitude_is_static, voltage_angle_is_static = voltage_is_static_list[index]
+            
+            # does not enter the function vector if the voltage magnitude and angle are static
+            if voltage_magnitude_is_static is True and voltage_angle_is_static is True:
                 continue
                 
-            Vi = voltage_mag_list[index]
-            thetai = voltage_angle_list[index]
-            Gii = self_conductance_list[index]
-            Bii = self_susceptance_list[index]
+            Vpolar_i = voltage_list[index]
+            Yii = self_admittance_list[index]
             
             P_net, Q_net = self.get_bus_by_id(bus_id).get_specified_real_reactive_power()
             
-            fp, fq = fp_fq_helper(P_net, Q_net, Vi, thetai, Gii, Bii,
+            fp, fq = fp_fq_helper(P_net, Q_net, Vpolar_i, Yii,
                                   admittance_matrix_index_bus_id_mapping,
-                                  voltage_mag_list, voltage_angle_list,
-                                  connected_bus_ids_list[index],
-                                  interconnection_conductances_list[index],
-                                  interconnection_susceptances_list[index])
+                                  voltage_list, connected_bus_ids_list[index],
+                                  interconnection_admittance_list[index])
 
             function_vector = append(function_vector, fp)
             
-            if is_pv_bus_list[index] is False:
+            if voltage_magnitude_is_static is False:
                 function_vector = append(function_vector, fq)
 
         return function_vector
@@ -505,29 +500,23 @@ class PowerNetwork(object):
         admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
         slack_bus_id = self.get_slack_bus_id()
 
-        (is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
-         interconnection_conductances_list, interconnection_susceptances_list,
-         self_conductance_list, self_susceptance_list, jacobian_indices) = self._get_static_vars_list()
+        (voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list, interconnection_admittance_list,
+         self_admittance_list, jacobian_indices) = self._get_static_vars_list()
 
-        (voltage_mag_list,
-         voltage_angle_list,
-         dgr_derivatives) = self._get_varying_vars_list(admittance_matrix_index_bus_id_mapping)
+        voltage_list, dgr_derivatives = self._get_varying_vars_list(admittance_matrix_index_bus_id_mapping)
 
-        num_pv_buses = sum([1 if x is True else 0 for x in is_pv_bus_list])
+        # num_pv_buses = sum([1 if x is True else 0 for x in is_pv_bus_list])
         num_buses = len(admittance_matrix_index_bus_id_mapping)
-        if self.get_slack_bus_id() is not None:
-            num_pv_buses -= 1
-            num_buses -= 1
+        num_buses -= sum([1 if x[0] is True and x[1] is True else 0 for x in voltage_is_static_list])
+        num_pv_buses = sum([1 if x[0] is True and x[1] is False else 0 for x in voltage_is_static_list])
 
         n = num_buses*2 - num_pv_buses
 
         J = zeros((n, n))
-        
         Parallel()(delayed(compute_jacobian_row_by_bus)
-                   (J, index, is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
+                   (J, index, voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list,
                     jacobian_indices, admittance_matrix_index_bus_id_mapping,
-                    interconnection_conductances_list, interconnection_susceptances_list,
-                    self_conductance_list, self_susceptance_list, voltage_mag_list, voltage_angle_list,
+                    interconnection_admittance_list, self_admittance_list, voltage_list,
                     dgr_derivatives) for index, _ in enumerate(admittance_matrix_index_bus_id_mapping))
 
 
@@ -537,36 +526,32 @@ class PowerNetwork(object):
     def _get_varying_vars_list(self, index_bus_id_mapping=None):
         if index_bus_id_mapping is None:
             index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
-        return frompyfunc(self._varying_var_helper, 1, 3)(index_bus_id_mapping)
+        return frompyfunc(self._varying_var_helper, 1, 2)(index_bus_id_mapping)
 
 
     def _varying_var_helper(self, bus_id):
         bus = self.get_bus_by_id(bus_id)
-        V, theta = bus.get_current_voltage()
-
+        Vpolar = bus.get_current_voltage()
+        
         if bus.has_dynamic_dgr_attached() is True and bus.is_pv_bus() is False:
-            dgr_derivatives = bus.dgr.get_real_reactive_power_derivatives(V, theta)
+            dgr_derivatives = bus.dgr.get_real_reactive_power_derivatives(Vpolar)
         else:
             dgr_derivatives = ()
 
-        return V, theta, dgr_derivatives
+        return Vpolar, dgr_derivatives
 
         
     def save_static_vars_list(self, index_bus_id_mapping=None):
 
-        (is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
-         interconnection_conductances_list, interconnection_susceptances_list,
-         self_conductance_list, self_susceptance_list,
+        (voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list,
+         interconnection_admittance_list, self_admittance_list,
          jacobian_indices) = self._generate_static_vars_list(index_bus_id_mapping)
          
-        self.is_slack_bus_list = is_slack_bus_list
-        self.is_pv_bus_list = is_pv_bus_list
+        self.voltage_is_static_list = voltage_is_static_list
         self.has_dynamic_dgr_list = has_dynamic_dgr_list
         self.connected_bus_ids_list = connected_bus_ids_list
-        self.interconnection_conductances_list = interconnection_conductances_list
-        self.interconnection_susceptances_list = interconnection_susceptances_list
-        self.self_conductance_list = self_conductance_list
-        self.self_susceptance_list = self_susceptance_list
+        self.interconnection_admittance_list = interconnection_admittance_list
+        self.self_admittance_list = self_admittance_list
         self.jacobian_indices = jacobian_indices        
 
 
@@ -576,14 +561,11 @@ class PowerNetwork(object):
             recompute = True
         else:
             try:
-                is_slack_bus_list = self.is_slack_bus_list
-                is_pv_bus_list = self.is_pv_bus_list
+                voltage_is_static_list = self.voltage_is_static_list
                 has_dynamic_dgr_list = self.has_dynamic_dgr_list
                 connected_bus_ids_list = self.connected_bus_ids_list
-                interconnection_conductances_list = self.interconnection_conductances_list
-                interconnection_susceptances_list = self.interconnection_susceptances_list
-                self_conductance_list = self.self_conductance_list
-                self_susceptance_list = self.self_susceptance_list
+                interconnection_admittance_list = self.interconnection_admittance_list
+                self_admittance_list = self.self_admittance_list
                 jacobian_indices = self.jacobian_indices
             except AttributeError:
                 recompute = True
@@ -591,52 +573,47 @@ class PowerNetwork(object):
         if recompute is True:
             return self._generate_static_vars_list(index_bus_id_mapping)
         else:
-            return (is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
-                    interconnection_conductances_list, interconnection_susceptances_list,
-                    self_conductance_list, self_susceptance_list, jacobian_indices)
+            return (voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list,
+                    interconnection_admittance_list, self_admittance_list, jacobian_indices)
 
 
     def _generate_static_vars_list(self, index_bus_id_mapping=None):
         if index_bus_id_mapping is None:
             index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
         
-        (is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
-         interconnection_conductances_list, interconnection_susceptances_list,
-         self_conductance_list, self_susceptance_list) = frompyfunc(self._static_var_helper, 1, 8)(index_bus_id_mapping)
+        (voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list, interconnection_admittance_list, 
+         self_admittance_list) = frompyfunc(self._static_var_helper, 1, 5)(index_bus_id_mapping)
         
         jacobian_indices = []
         current_index = 0
         for index, bus_id in enumerate(index_bus_id_mapping):
-            if is_slack_bus_list[index] is False:
+            if voltage_is_static_list[index][0] is True and voltage_is_static_list[index][1] is True:
+                jacobian_indices.append(None)
+            else:
                 jacobian_indices.append(current_index)
-                if is_pv_bus_list[index] is True:
+                if voltage_is_static_list[index][0] is True:
                     current_index += 1
                 else:
                     current_index += 2   
-            else:
-                jacobian_indices.append(None)
 
-        return (is_slack_bus_list, is_pv_bus_list, has_dynamic_dgr_list, connected_bus_ids_list,
-                interconnection_conductances_list, interconnection_susceptances_list,
-                self_conductance_list, self_susceptance_list, jacobian_indices)
+        return (voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list,
+                interconnection_admittance_list, self_admittance_list, jacobian_indices)
 
 
     def _static_var_helper(self, bus_id):
         bus = self.get_bus_by_id(bus_id)
 
-        self_conductance, self_susceptance = self._get_admittance_value_from_bus_ids(bus_id, bus_id)
+        self_admittance = self._get_admittance_value_from_bus_ids(bus_id, bus_id)
 
-        interconnection_conductances = []
-        interconnection_susceptances = []
+        interconnection_admittance = []
 
         connected_bus_ids = self.get_all_connected_bus_ids_by_id(bus_id)
         for connected_bus_id in connected_bus_ids:
-            Gik, Bik = self._get_admittance_value_from_bus_ids(bus_id, connected_bus_id)
-            interconnection_conductances.append(Gik)
-            interconnection_susceptances.append(Bik)
+            Yik = self._get_admittance_value_from_bus_ids(bus_id, connected_bus_id)
+            interconnection_admittance.append(Yik)
 
-        return (self.is_slack_bus_by_id(bus_id), bus.is_pv_bus(), bus.has_dynamic_dgr_attached(), connected_bus_ids,
-                interconnection_conductances, interconnection_susceptances, self_conductance, self_susceptance)
+        return (bus.is_voltage_static(), bus.has_dynamic_dgr_attached(), connected_bus_ids,
+                interconnection_admittance, self_admittance)
 
 
     def solve_power_flow(self, optimal_ordering=True, append=True, force_static_var_recompute=False):
@@ -689,28 +666,20 @@ class PowerNetwork(object):
     def compute_apparent_power_injected_from_network(self, bus):
         admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
 
-        (_, _, _, connected_bus_ids_list,
-         interconnection_conductances_list, interconnection_susceptances_list,
-         self_conductance_list, self_susceptance_list, _) = self._get_static_vars_list()
+        _, _, connected_bus_ids_list, interconnection_admittance_list, self_admittance, _ = self._get_static_vars_list()
 
-        (voltage_mag_list,
-         voltage_angle_list,
-         _) = self._get_varying_vars_list(admittance_matrix_index_bus_id_mapping)
+        voltage_list, _ = self._get_varying_vars_list(admittance_matrix_index_bus_id_mapping)
 
         bus_id = bus.get_id()
         index = admittance_matrix_index_bus_id_mapping.index(bus_id)
                 
-        Vi = voltage_mag_list[index]
-        thetai = voltage_angle_list[index]
-        Gii = self_conductance_list[index]
-        Bii = self_susceptance_list[index]
+        Vpolar_i = voltage_list[index]
+        Yii = self_admittance[index]
         
-        return compute_apparent_power_injected_from_network(Vi, thetai, Gii, Bii,
+        return compute_apparent_power_injected_from_network(Vpolar_i, Yii,
                                                             admittance_matrix_index_bus_id_mapping,
-                                                            voltage_mag_list, voltage_angle_list,
-                                                            connected_bus_ids_list[index],
-                                                            interconnection_conductances_list[index],
-                                                            interconnection_susceptances_list[index])
+                                                            voltage_list, connected_bus_ids_list[index],
+                                                            interconnection_admittance_list[index])
 
 
     def identify_dynamic_dgr_buses(self):
