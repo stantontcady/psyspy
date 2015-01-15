@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from model_components import Bus, ConstantPowerLoad, PowerNetwork, PQBus, PVBus
+from microgrid_model import Bus, ConstantPowerLoad, PowerNetwork, PQBus, PVBus
 from IPython import embed
 
 

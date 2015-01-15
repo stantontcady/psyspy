@@ -3,19 +3,16 @@ from itertools import count
 
 from numpy import append, nan
 
-from .node import Node
-from model_components import impedance_admittance_wrangler
-# from power_network_helper_functions import jacobian_hij_helper, jacobian_nij_helper, jacobian_kij_helper, jacobian_lij_helper
-
-from IPython import embed
-
+from node import Node
+from microgrid_model.model_components.helper_functions import impedance_admittance_wrangler
+from microgrid_model.exceptions import NodeError
 
 class Bus(Node):
     _bus_ids = count(0)
     
     def __init__(self, dgr=None, loads=None, V0=None, theta0=None, shunt_z=(), shunt_y=()):
         if type(dgr) is list:
-            raise TypeError('Only a single generator can be attached to ')
+            raise NodeError('Only a single generator can be attached to ')
         
         # try to inherit the initial voltage of an attached generator or load
         if (V0 is None or theta0 is None) and (dgr is not None or loads is not None):

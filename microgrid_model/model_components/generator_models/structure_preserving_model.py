@@ -1,12 +1,12 @@
 from inspect import currentframe, getargvalues
-from operator import itemgetter
-from numpy import append, empty, nan
 from math import asin, atan, cos, pi, sin, sqrt
+from operator import itemgetter
 
-from generator_model import GeneratorModel
-from model_components import set_initial_conditions
+from numpy import append, empty, nan
 
-from IPython import embed
+from .generator_model import GeneratorModel
+from ..helper_functions import set_initial_conditions
+
 
 class StructurePreservingModel(GeneratorModel):
     

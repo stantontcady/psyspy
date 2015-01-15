@@ -4,7 +4,7 @@ from numpy import append
 
 from ..bus import Bus
 from constant_power_load import ConstantPowerLoad
-from model_components import set_initial_conditions
+from ...helper_functions import set_initial_conditions
 
 
 class PQBus(Bus):

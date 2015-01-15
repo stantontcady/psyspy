@@ -4,10 +4,11 @@ from numpy import array, asarray, matrix, genfromtxt
 from numpy.testing import assert_array_equal, assert_array_almost_equal, assert_array_equal
 from scipy.sparse import lil_matrix
 
-from model_components import Bus, ConstantPowerLoad, Node, PowerNetwork, PQBus, PVBus
+from microgrid_model import Bus, ConstantPowerLoad, Node, PowerLine, PowerNetwork, PQBus, PVBus
+from microgrid_model import NodeError, PowerLineError, PowerNetworkError
 
 
-def create_wecc_9_bus_network():
+def create_wecc_9_bus_network(set_slack_bus=True):
     la = ConstantPowerLoad(P=1.25, Q=0.5) # Station A
     lb = ConstantPowerLoad(P=0.9, Q=0.3) # Station B
     lc = ConstantPowerLoad(P=1, Q=0.35) # Station C
@@ -34,8 +35,8 @@ def create_wecc_9_bus_network():
     line9 = n.connect_buses(b8, b9, z=(0.0119, 0.1008))
     line2 = n.connect_buses(b2, b7, z=(0, 0.0625))
 
-
-    n.set_slack_bus(b1)
+    if set_slack_bus is True:
+        n.set_slack_bus(b1)
     return n
     
 def create_wecc_9_bus_network_with_pq_buses():
@@ -140,10 +141,10 @@ class TestPowerNetwork(unittest.TestCase):
 
     
     def test_generate_admittance_matrix(self):
-        expected_G = genfromtxt('resources/tests/wecc9_conductance_matrix.csv', delimiter=',')
-        expected_B = genfromtxt('resources/tests/wecc9_susceptance_matrix.csv', delimiter=',')
-        expected_G_optimal = genfromtxt('resources/tests/wecc9_conductance_matrix_optimal_ordering.csv', delimiter=',')
-        expected_B_optimal = genfromtxt('resources/tests/wecc9_susceptance_matrix_optimal_ordering.csv', delimiter=',')
+        expected_G = genfromtxt('tests/resources/wecc9_conductance_matrix.csv', delimiter=',')
+        expected_B = genfromtxt('tests/resources/wecc9_susceptance_matrix.csv', delimiter=',')
+        expected_G_optimal = genfromtxt('tests/resources/wecc9_conductance_matrix_optimal_ordering.csv', delimiter=',')
+        expected_B_optimal = genfromtxt('tests/resources/wecc9_susceptance_matrix_optimal_ordering.csv', delimiter=',')
 
         network = create_wecc_9_bus_network()
 
@@ -165,8 +166,8 @@ class TestPowerNetwork(unittest.TestCase):
 
         
     def test_generate_jacobian_matrix(self):
-        expected_J = genfromtxt('resources/tests/wecc9_jacobian_matrix.csv', delimiter=',')
-        expected_J_optimal = genfromtxt('resources/tests/wecc9_jacobian_matrix_optimal_ordering.csv', delimiter=',')
+        expected_J = genfromtxt('tests/resources/wecc9_jacobian_matrix.csv', delimiter=',')
+        expected_J_optimal = genfromtxt('tests/resources/wecc9_jacobian_matrix_optimal_ordering.csv', delimiter=',')
 
         network = create_wecc_9_bus_network()
 
@@ -200,13 +201,27 @@ class TestPowerNetwork(unittest.TestCase):
         network0 = create_wecc_9_bus_network()
         network1 = create_wecc_9_bus_network_with_pq_buses()
 
-        expected_final_states = genfromtxt('resources/tests/wecc9_final_states.csv', delimiter=',')
-        expected_final_states_optimal_ordering = genfromtxt('resources/tests/wecc9_final_states_optimal_ordering.csv',
+        expected_final_states = genfromtxt('tests/resources/wecc9_final_states.csv', delimiter=',')
+        expected_final_states_optimal_ordering = genfromtxt('tests/resources/wecc9_final_states_optimal_ordering.csv',
                                                             delimiter=',')
         
         do_test(network0)
         do_test(network1)
 
+
+    def test_exceptions(self):
+        network = create_wecc_9_bus_network(set_slack_bus=False)
+        
+        self.assertRaises(PowerNetworkError, network.get_slack_bus_id)
+        self.assertRaises(PowerNetworkError, network._compute_and_save_line_power_flows, None)
+        self.assertRaises(PowerNetworkError, network.get_admittance_matrix_index_bus_id_mapping)
+        self.assertRaises(PowerNetworkError, network.get_admittance_matrix)
+        
+        line = PowerLine()
+        self.assertRaises(PowerLineError, line.get_incident_buses)
+        
+        self.assertRaises(NodeError, Bus, [])
+        
     
 if __name__ == '__main__':
     unittest.main()

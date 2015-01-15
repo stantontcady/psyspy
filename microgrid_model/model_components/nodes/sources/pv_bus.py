@@ -3,7 +3,7 @@ from itertools import count
 from numpy import append
 
 from ..bus import Bus
-from model_components import set_initial_conditions
+from ...helper_functions import set_initial_conditions
 
 
 class PVBus(Bus):

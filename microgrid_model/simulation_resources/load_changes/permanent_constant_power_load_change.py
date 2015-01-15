@@ -1,6 +1,6 @@
 from itertools import count
 
-from .constant_power_load_change import ConstantPowerLoadChange
+from constant_power_load_change import ConstantPowerLoadChange
 
 
 class PermanentConstantPowerLoadChange(ConstantPowerLoadChange):

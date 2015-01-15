@@ -2,7 +2,7 @@ from itertools import count
 
 from numpy import array, append, nan
 
-from model_components import set_initial_conditions
+from ..helper_functions import set_initial_conditions
 
 
 class Node(object):

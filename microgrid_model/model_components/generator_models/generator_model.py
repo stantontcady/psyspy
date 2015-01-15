@@ -1,7 +1,7 @@
 from operator import itemgetter
 from numpy import append, array, empty, nan
 
-from model_components import set_initial_conditions, set_parameter_value
+from ..helper_functions import set_initial_conditions, set_parameter_value
 
 
 class GeneratorModel(object):

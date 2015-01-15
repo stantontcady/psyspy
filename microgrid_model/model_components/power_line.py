@@ -2,7 +2,8 @@ from itertools import count
 
 from numpy import append
 
-from model_components import impedance_admittance_wrangler, set_initial_conditions
+from helper_functions import impedance_admittance_wrangler, set_initial_conditions
+from microgrid_model.exceptions import PowerLineError
 
 
 class PowerLine(object):
@@ -64,7 +65,7 @@ class PowerLine(object):
     
     def get_incident_buses(self):
         if self.bus_a is None or self.bus_b is None:
-            raise AttributeError('missing an incident bus, make sure power line is connected to two buses')
+            raise PowerLineError('missing an incident bus, make sure power line is connected to two buses')
         
         return self.bus_a, self.bus_b
         

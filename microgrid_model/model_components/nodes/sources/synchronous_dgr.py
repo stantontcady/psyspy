@@ -4,9 +4,9 @@ from operator import itemgetter
 from math import pi
 from numpy import append, array, empty, nan
 
-from model_components import set_initial_conditions, set_parameter_value
 from dgr import DGR
-from generator_models import GeneratorModel, StructurePreservingModel
+from ...generator_models import GeneratorModel, StructurePreservingModel
+from ...helper_functions import set_initial_conditions, set_parameter_value
 
 from IPython import embed
 

@@ -9,11 +9,12 @@ from numpy.linalg import norm, cond
 from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import spsolve
 
+from ..exceptions import PowerNetworkError
 from power_line import PowerLine
 from power_network_helper_functions import fp_fq_helper, connected_bus_helper, jacobian_hij_helper, jacobian_nij_helper, \
                                            jacobian_kij_helper, jacobian_lij_helper, jacobian_diagonal_helper, \
                                            compute_apparent_power_injected_from_network, compute_jacobian_row_by_bus
-from simulation_resources import NewtonRhapson
+from ..simulation_resources import NewtonRhapson
 from IPython import embed
 
 class PowerNetwork(object):
@@ -235,7 +236,7 @@ class PowerNetwork(object):
             if suppress_exception is True:
                 return None
             else:
-                raise AttributeError('missing admittance matrix mapping for this power network')
+                raise PowerNetworkError('missing admittance matrix mapping for this power network')
         
         return admittance_matrix_index_bus_id_mapping['mapping']
 
@@ -267,7 +268,7 @@ class PowerNetwork(object):
                 bus_id_j = self.get_connected_bus_id(bus_i, incident_power_line)
                 j = self._get_admittance_matrix_index_from_bus_id(bus_id_j)
                 if j is None:
-                    raise AttributeError('cannot generate admittance matrix, bus id %i cannot be found' % (bus_id_j))
+                    raise PowerNetworkError('cannot generate admittance matrix, bus id %i cannot be found' % (bus_id_j))
                 (gij, bij) = incident_power_line.y
                 G[i, i] += gij
                 B[i, i] -= bij
@@ -304,7 +305,7 @@ class PowerNetwork(object):
             B = None
         
         if G is None or B is None:
-            raise AttributeError('missing conductance or susceptance matrix for this power network')
+            raise PowerNetworkError('missing conductance or susceptance matrix for this power network')
 
         return G, B
         
@@ -335,7 +336,7 @@ class PowerNetwork(object):
             slack_bus_id = self.slack_bus_id
             return slack_bus_id
         except AttributeError:
-            raise AttributeError('no slack bus selected for this power network')
+            raise PowerNetworkError('no slack bus selected for this power network')
 
 
     def set_slack_bus(self, bus):
@@ -648,7 +649,7 @@ class PowerNetwork(object):
             elif append is False:
                 power_line.replace_complex_power(P, Q)
             else:
-                raise ValueError('append kwarg must be True or False')
+                raise PowerNetworkError('cannot compute power flows, append kwarg must be True or False')
 
             
     def _compute_line_power_flow(self, power_line):
