@@ -1,3 +1,4 @@
+from logging import debug, info, warning, getLogger
 from math import ceil
 
 from numpy import empty
@@ -11,10 +12,10 @@ class SimulationRoutine(object):
     
     def __init__(self, power_network, simulation_time, system_changes=None, time_step=0.001, power_flow_tolerance=0.0001):
         
-        if self.has_nondynamic_bus_types(power_network) is False:
-            self.network = power_network
-        else:
-            raise TypeError('power network cannot contain any buses of type PVBus or PQBus')
+        # if self.has_nondynamic_bus_types(power_network) is False:
+        self.network = power_network
+        # else:
+            # raise TypeError('power network cannot contain any buses of type PVBus or PQBus')
 
         self.network.set_solver_tolerance(power_flow_tolerance)
         self.simulation_time = simulation_time
@@ -36,16 +37,6 @@ class SimulationRoutine(object):
                         print 'Temporary system change does not revert to normal conditions before end of simulation'
                         continue
                 self.add_system_change(system_change)
-
-    
-    def has_nondynamic_bus_types(self, network):
-        list_of_bus_types = network.get_list_of_bus_types()
-        if network.has_pq_bus(list_of_bus_types) is not False:
-            return True
-        if network.has_pv_bus(list_of_bus_types) is not False:
-            return True
-            
-        return False
 
 
     def add_system_change(self, system_change):
@@ -89,35 +80,16 @@ class SimulationRoutine(object):
             
     def run_simulation(self):
         self.current_time = 0
-        dynamic_dgr_buses = self.network.get_dynamic_dgr_buses()
-        # need to make each bus with a dynamic generator attached act like a PV bus to solve the initial power flow
-        for dynamic_dgr_bus in dynamic_dgr_buses:
-            dynamic_dgr_bus.make_temporary_pv_bus()
+        logger = getLogger()
+        # logger.setLevel(10)
+        
+        _ = self.network.compute_initial_values_for_dynamic_simulation()
+        
+        self.network.initialize_dynamic_model_states()
+        
+        self.network.prepare_for_dynamic_simulation()
 
-        _ = self.network.solve_power_flow(append=False, force_static_var_recompute=True)
-        
-        for dynamic_dgr_bus in dynamic_dgr_buses:
-            Pnetwork, Qnetwork = self.network.compute_apparent_power_injected_from_network(dynamic_dgr_bus)
-            dynamic_dgr_bus.dgr.initialize_states(Pnetwork, Qnetwork)
-            dynamic_dgr_bus.stop_temporary_pv_bus()
-            
-            
-        # no longer need a slack bus during dynamic simulation
-        slack_and_reference_bus_id = self.network.get_slack_bus_id()
-        self.network.unset_slack_bus()
-        self.network.set_voltage_angle_reference_bus_by_id(slack_and_reference_bus_id)
-        
         reference_bus = self.network.get_voltage_angle_reference_bus()
-        reference_dgr_states = reference_bus.dgr.get_current_states(as_dictionary=True)
-        reference_angle = reference_dgr_states['d']
-        self.network.shift_bus_voltage_angles(reference_angle)
-        for dynamic_dgr_bus in dynamic_dgr_buses:
-            dynamic_dgr_bus.dgr.shift_initial_torque_angle(reference_angle)
-            dynamic_dgr_bus.dgr.set_reference_angle(reference_angle)
-        
-        # need to update static variables to account for some changed bus properties
-        self.network.save_static_vars_list()
-        
 
         for k in range(0, self.num_simulation_steps):
             self.time_vector[k] = self.current_time
@@ -129,23 +101,17 @@ class SimulationRoutine(object):
                 _, _ = self.network.save_admittance_matrix()
                 force_static_var_recompute = True
             self.current_time += self.time_step
-            
-            reference_dgr_states = reference_bus.dgr.get_current_states(as_dictionary=True)
-            reference_speed = reference_dgr_states['w']
 
-            # these can be parallelized
-            for dynamic_dgr_bus in dynamic_dgr_buses:
-                if self.network.is_voltage_angle_reference_bus(dynamic_dgr_bus) is False:
-                    dgr = dynamic_dgr_bus.dgr
-                    dgr.set_reference_angular_velocity(reference_speed)
-                    updated_states = self.numerical_method.get_updated_states(dgr.get_current_states(),
-                                                                              dgr.get_incremental_states)
-                    dgr.update_states(updated_states)
-                    
-            # update reference bus last since the other buses need it's angular speed
-            updated_states = self.numerical_method.get_updated_states(reference_bus.dgr.get_current_states(),
-                                                                      reference_bus.dgr.get_incremental_states)
-            reference_bus.dgr.update_states(updated_states)
+            reference_velocity = reference_bus.get_current_dynamic_angular_velocity()
+            
+            for bus in self.network.get_buses_with_dynamic_models():
+                if self.network.is_voltage_angle_reference_bus(bus) is not True:
+                    bus.set_reference_dynamic_angular_velocity(reference_velocity)
+                
+                bus.save_bus_voltage_polar_to_model()
+                
+                bus.update_dynamic_states(numerical_integration_method=self.numerical_method.get_updated_states)
+                
 
             # solve power flow without slack bus, make sure to leave append=True (this is the default option), tolerance=self.power_flow_tolerance
             if k == 0:

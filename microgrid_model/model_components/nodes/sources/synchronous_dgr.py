@@ -62,59 +62,7 @@ class SynchronousDGR(DGR):
                             for line in self.generator_model.repr_helper(simple=simple,
                                                                          indent_level_increment=indent_level_increment)])
         return object_info
-        
-    
-    def initialize_states(self, Pnetwork, Qnetwork, V=None, theta=None, overwrite_current_values=True):
-        V, theta = self._voltage_helper(V, theta)
 
-        if self.check_for_generator_model() is False:
-            raise AttributeError('No model provided for synchronous DGR %i' % self.get_id())
-            
-        initialize_method = self._check_for_generator_model_method('initialize_states')
-        if initialize_method is False:
-            raise AttributeError('The %s model does not have a method to initialize its states' % (self.generator_model.model_type['full_name']))
-        
-        return initialize_method(V, theta, Pnetwork, Qnetwork, overwrite_current_values=overwrite_current_values)
-        
-    
-    def get_current_states(self, as_dictionary=False):
-        return self.generator_model.get_current_states(as_dictionary=as_dictionary)
-
-
-    def get_incremental_states(self, V=None, theta=None, current_states=None, current_setpoints=None, as_dictionary=False):
-        V, theta = self._voltage_helper(V, theta)
-
-        if self.check_for_generator_model() is False:
-            raise AttributeError('No model provided for synchronous DGR %i' % self.get_id())
-        
-        incremental_method = self._check_for_generator_model_method('get_incremental_states')
-        if incremental_method is False:
-            raise AttributeError('The %s model does not have a method to get incremental states' % (self.generator_model.model_type['full_name']))
-        
-        return incremental_method(V, theta,
-                                  current_states=current_states, current_setpoints=current_setpoints,
-                                  as_dictionary=as_dictionary)
-
-
-    def update_states(self, new_states):
-        self.generator_model.update_states(new_states)
-        
-    
-    def get_current_setpoints(self, as_dictionary=False):
-        return self.generator_model.get_current_setpoints(as_dictionary=as_dictionary)
-        
-    
-    def get_real_reactive_power_output(self):
-        model = self.check_for_generator_model()
-        if model is False:
-            P = nan
-            Q = nan
-        else:
-            V, theta = self.get_current_voltage()
-            P = model.p_out_model(V, theta)
-            Q = model.q_out_model(V, theta)
-        
-        return P, Q
 
         
     def shift_initial_torque_angle(self, angle_to_shift):
@@ -136,36 +84,3 @@ class SynchronousDGR(DGR):
         if method is False:
             raise AttributeError('Cannot set reference angular velocity, method for doing so does not exist')
         return method(reference_angular_velocity)
-        
-    
-    def get_real_reactive_power_derivatives(self, Vpolar):
-        generator_model = self.check_for_generator_model()
-        if generator_model is False:
-            raise AttributeError('No generator model specified')
-            
-        generator_model_name = generator_model.model_type['full_name']
-        
-        dp_out_d_theta_model = self._check_for_generator_model_method('dp_out_d_theta_model')
-        if dp_out_d_theta_model is False:
-            raise AttributeError('No dpout/dtheta model specified for %s model' % generator_model_name)
-            
-        dp_out_d_v_model = self._check_for_generator_model_method('dp_out_d_v_model')
-        if dp_out_d_v_model is False:
-            raise AttributeError('No dpout/dV model specified for %s model' % generator_model_name)
-            
-        dq_out_d_theta_model = self._check_for_generator_model_method('dq_out_d_theta_model')
-        if dq_out_d_theta_model is False:
-            raise AttributeError('No dpout/dtheta model specified for %s model' % generator_model_name)
-            
-        dq_out_d_v_model = self._check_for_generator_model_method('dq_out_d_v_model')
-        if dq_out_d_v_model is False:
-            raise AttributeError('No dpout/dV model specified for %s model' % generator_model_name)
-        
-        V, theta = Vpolar
-        
-        dp_out_d_theta = dp_out_d_theta_model(V, theta)
-        dp_out_d_v = dp_out_d_v_model(V, theta)
-        dq_out_d_theta = dq_out_d_theta_model(V, theta)
-        dq_out_d_v = dq_out_d_v_model(V, theta)
-        
-        return dp_out_d_theta, dp_out_d_v, dq_out_d_theta, dq_out_d_v

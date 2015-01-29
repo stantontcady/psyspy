@@ -1,7 +1,7 @@
 from itertools import count
 
 from power_line_change import PowerLineChange
-from microgrid_model import impedance_admittance_wrangler
+from microgrid_model.model_components import impedance_admittance_wrangler
 
 
 class PowerLineImpedanceChange(PowerLineChange):

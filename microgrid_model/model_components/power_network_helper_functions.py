@@ -1,18 +1,15 @@
 from math import cos, sin
 
 
-def fp_fq_helper(P_net, Q_net, Vpolar_i, Yii,
-                  admittance_matrix_index_bus_id_mapping,
-                  voltage_list,
-                  connected_bus_ids,
-                  interconnection_admittance_list):
+def fp_fq_helper(P_injected, Q_injected, Vpolar_i, Yii, admittance_matrix_index_bus_id_mapping,
+                 voltage_list, connected_bus_ids, interconnection_admittance_list):
     
     (P_network, Q_network) = compute_apparent_power_injected_from_network(Vpolar_i, Yii,
                                                                           admittance_matrix_index_bus_id_mapping,
                                                                           voltage_list, connected_bus_ids,
                                                                           interconnection_admittance_list)
 
-    return P_network - P_net, Q_network - Q_net
+    return P_network - P_injected, Q_network - Q_injected
     
                
 def connected_bus_helper(Vpolar_i, Vpolar_j, Yij, real_trig_function, imag_trig_function, imag_multipler=1):
@@ -105,10 +102,8 @@ def jacobian_diagonal_helper(Vpolar_i, Yii, voltage_is_static,
     return Hii, Nii, Kii, Lii
 
 
-def compute_apparent_power_injected_from_network(Vpolar_i, Yii,
-                                                 admittance_matrix_index_bus_id_mapping,
-                                                 voltage_list, connected_bus_ids,
-                                                 interconnection_admittance_list):
+def compute_apparent_power_injected_from_network(Vpolar_i, Yii, admittance_matrix_index_bus_id_mapping,
+                                                 voltage_list, connected_bus_ids, interconnection_admittance_list):
 
     Vi, _ = Vpolar_i
     Gii, Bii = Yii
@@ -132,17 +127,17 @@ def is_slack_bus(voltage_is_static):
         return True
 
     return False
+
     
 def is_pv_bus(voltage_is_static):
     return voltage_is_static[0]
 
 
 def compute_jacobian_row_by_bus(J, index_i,
-                                voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list,
+                                voltage_is_static_list, has_dynamic_model_list, connected_bus_ids_list,
                                 jacobian_indices, admittance_matrix_index_bus_id_mapping,
                                 interconnection_admittance_list, self_admittance_list,
                                 voltage_list, dgr_derivatives):
-                                
 
     # if voltage magnitude and angle are constant, this bus is not included in the jacboian
     if is_slack_bus(voltage_is_static_list[index_i]) is True:
@@ -167,7 +162,7 @@ def compute_jacobian_row_by_bus(J, index_i,
         J[i+1, i] = Kii
         J[i, i+1] = Nii
         J[i+1, i+1] = Lii
-        if has_dynamic_dgr_list[index_i] is True:
+        if has_dynamic_model_list[index_i] is True:
             Hii_dgr, Nii_dgr, Kii_dgr, Lii_dgr = dgr_derivatives[index_i]
             J[i, i] -= Hii_dgr
             J[i, i+1] -= Nii_dgr

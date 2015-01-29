@@ -6,6 +6,7 @@ from numpy import append, empty, nan
 
 from .generator_model import GeneratorModel
 from ..helper_functions import set_initial_conditions
+from microgrid_model.exceptions import GeneratorModelError
 
 
 class StructurePreservingModel(GeneratorModel):
@@ -27,14 +28,60 @@ class StructurePreservingModel(GeneratorModel):
             'full_name':'Structure-Preserving With Constant Voltage Behind Reactance'
         }
 
-        self.state_indicies = {
+        self.state_indices = {
             'd' : 0,
             'w' : 1,
             'P' : 2
         }
         
-        self.setpoint_indicies = {
+        self.state_methods = {
+            'initial_value_methods' : {
+                'd' : '_d_initial_value',
+                'w' : '_w_initial_value',
+                'P' : '_P_initial_value'
+            },
+            'incremental_model_methods' : {
+                'd' : '_dd_dt_model',
+                'w' : '_dw_dt_model',
+                'P' : '_dP_dt_model'
+            },
+            'partial_wrt_V_methods' : {
+                
+            },
+            'partial_wrt_theta_methods' : {
+                
+            },
+            'partial_wrt_d_methods' : {
+                
+            }
+        }
+        
+        self.setpoint_indices = {
             'u' : 0
+        }
+        
+        self.apparent_power_partial_derivative_methods = {
+            'partial_wrt_V_methods' : ['_dP_dV_model', 'dQ_dV_model'],
+            'partial_wrt_theta_methods' : ['_dP_dtheta_model', 'dQ_dtheta_model']
+            'partial_wrt_d_methods' : ['_dP_dd_model', 'dQ_dd_model']
+        }
+        
+        self.partial_derivative_indices = {
+            'dPdV' : 0,
+            'dPdtheta' : 1,
+            'dQdV' : 2,
+            'dQdtheta' : 3,
+            'dPdd' : 4,
+            'dQdd' : 5
+        }
+        
+        self.partial_derivative_descriptions = {
+            'dPdV' : 'Real power wrt bus voltage magnitude',
+            'dPdtheta' : 'Real power wrt bus voltage angle',
+            'dQdV' : 'Reactive power wrt bus voltage magnitude',
+            'dQdtheta' : 'Reactive power wrt bus voltage angle',
+            'dPdd' : 'Real power wrt torque angle',
+            'dQdd' : 'Reactive power wrt torque angle'
         }
 
         # TO DO: get reasonable defaults for machine params
@@ -75,6 +122,7 @@ class StructurePreservingModel(GeneratorModel):
             current_states.append('Back EMF, E: %0.3f' % (self.E[-1]))
         except AttributeError:
             pass
+
         current_states.append('Torque angle, %s : %0.3f' % (u'\u03B4'.encode('UTF-8'), self.d[-1]))
         current_states.append('Angular speed, %s : %0.3f' % (u'\u03C9'.encode('UTF-8'), self.w[-1]))
         current_states.append('Real power output, P: %0.3f' % (self.P[-1]))
@@ -90,12 +138,12 @@ class StructurePreservingModel(GeneratorModel):
         return object_info
 
     
-    def _d_incremental_model(self, V, theta, wref=None, current_states=None, current_setpoints=None):
+    def _dd_dt_model(self, Vpolar, wref=None, current_states=None, current_setpoints=None):
         if current_states is None:
             current_states = self.get_current_states()
-        
+
         _, w, _ = self.parse_state_vector(current_states)
-        
+
         if wref is None:
             # if no reference angular velocity we assume this is the reference node
             wref = self.wnom
@@ -103,19 +151,19 @@ class StructurePreservingModel(GeneratorModel):
         return w - wref
 
         
-    def _d_initial_value(self, V, theta, Pnetwork, Qnetwork, current_setpoints=None):
-        E, d = self._back_emf_initial_value(V, theta, Pnetwork, Qnetwork)
+    def _d_initial_value(self, Vpolar, Pnetwork, Qnetwork, current_setpoints=None):
+        E, d = self._back_emf_initial_value(Vpolar, Pnetwork, Qnetwork)
         # save back emf voltage magnitude here since it doesn't have a dynamic model in this generator model
         set_initial_conditions(self, 'E', E)
         return d
 
 
-    def _w_incremental_model(self, V, theta, wref=None, current_states=None, current_setpoints=None):
+    def _dw_dt_model(self, Vpolar, wref=None, current_states=None, current_setpoints=None):
         if current_states is None:
             current_states = self.get_current_states()
-            
+
         d, w, P = self.parse_state_vector(current_states)
-        
+
         # dp stand for d prime, i.e., d'
         if self.reference_angle is None:
             raise AttributeError('reference angle is needed to get incremental state for angular velocity')
@@ -126,36 +174,36 @@ class StructurePreservingModel(GeneratorModel):
             wref = self.wnom
         else:
             wref = self.reference_angular_velocity
-        
-        Pout = self.p_out_model(V, theta, d)
-        
+
+        Pout = self.p_out_model(Vpolar, d)
+
         return (1./self.M)*(P - Pout - self.D*(w - wref))
         
 
-    def _w_initial_value(self, V, theta, Pnetwork=None, Qnetwork=None, current_setpoints=None):
+    def _w_initial_value(self, Vpolar, Pnetwork=None, Qnetwork=None, current_setpoints=None):
         return self.wnom
 
         
-    def _P_incremental_model(self, V, theta, current_states=None, current_setpoints=None):
+    def _dP_dt_model(self, Vpolar, current_states=None, current_setpoints=None):
         if current_states is None:
             current_states = self.get_current_states()
-            
+
         _, w, P = self.parse_state_vector(current_states)
-        
+
         if current_setpoints is None:
             current_setpoints = self.get_current_setpoints()
-            
+
         u, = self.parse_setpoint_vector(current_setpoints)
-        
+
         if self.reference_angular_velocity is None:
             wref = self.wnom
         else:
             wref = self.reference_angular_velocity
-        
+
         return (1./self.taug)*(u - P - (1./(self.Rd*wref))*(w - wref))
 
 
-    def _P_initial_value(self, V, theta, Pnetwork=None, Qnetwork=None, current_setpoints=None):
+    def _P_initial_value(self, Vpolar, Pnetwork=None, Qnetwork=None, current_setpoints=None):
         if current_setpoints is None:
             current_setpoints = self.get_current_setpoints()
             
@@ -163,27 +211,31 @@ class StructurePreservingModel(GeneratorModel):
         return Pnetwork
 
         
-    def p_out_model(self, V, theta, d=None):
+    def p_out_model(self, Vpolar, d=None):
         if d is None:
             d, _, _ = self.get_current_states()
+        V, theta = Vpolar
         return (1./self.Xdp)*self.E[-1]*V*sin(d - theta)
         
         
-    def q_out_model(self, V, theta, d=None):
+    def q_out_model(self, Vpolar, d=None):
         if d is None:
             d, _, _ = self.get_current_states()
+        V, theta = Vpolar
         return (1./self.Xdp)*(self.E[-1]*V*cos(theta - d) - V**2)
 
 
-    def dp_out_d_theta_model(self, V, theta, d=None):
+    def _dp_out_d_theta_model(self, Vpolar, d=None):
         if d is None:
             d, _, _ = self.get_current_states()
+        V, theta = Vpolar
         return -1*(1./self.Xdp)*V*self.E[-1]*cos(d - theta)
 
 
-    def dp_out_d_v_model(self, V, theta, d=None):
+    def _dp_out_d_v_model(self, Vpolar, d=None):
         if d is None:
             d, _, _ = self.get_current_states()
+        _, theta = Vpolar
         return (1./self.Xdp)*self.E[-1]*sin(d - theta)
         
     
@@ -193,26 +245,29 @@ class StructurePreservingModel(GeneratorModel):
         return (1./self.Xdp)*V*self.E[-1]*cos(d - theta)
 
 
-    def dq_out_d_theta_model(self, V, theta, d=None):
+    def _dq_out_d_theta_model(self, Vpolar, d=None):
         if d is None:
             d, _, _ = self.get_current_states()
+        V, theta = Vpolar
         return -1*(1./self.Xdp)*V*self.E[-1]*sin(theta - d)
         
         
-    def dq_out_d_v_model(self, V, theta, d=None):
+    def _dq_out_d_v_model(self, Vpolar, d=None):
         if d is None:
             d, _, _ = self.get_current_states()
+        V, theta = Vpolar
         return (1./self.Xdp)*self.E[-1]*cos(theta - d) - 2*V/self.Xdp
 
         
-    def dq_out_d__model(self, V, theta, d=None):
+    def dq_out_d_d_model(self, V, theta, d=None):
         if d is None:
             d, _, _ = self.get_current_states()
         return (1./self.Xdp)*V*self.E[-1]*sin(theta - d)
 
         
-    def _back_emf_initial_value(self, V, theta, Pg, Qg):
+    def _back_emf_initial_value(self, Vpolar, Pg, Qg):
         # these are needed numerous times, compute once first
+        V, theta = Vpolar
         cos_theta = cos(theta)
         sin_theta = sin(theta)
         # Back emf is E < delta = a + jb

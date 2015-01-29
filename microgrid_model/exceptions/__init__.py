@@ -1,1 +1,1 @@
-from exceptions import NodeError, PowerLineError, PowerNetworkError
+from exceptions import BusError, GeneratorModelError, ModelError, PowerLineError, PowerNetworkError

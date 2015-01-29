@@ -154,6 +154,18 @@ class Node(object):
         if theta is None:
             theta = self.get_current_voltage_angle()
         return V, theta
+        
+    def _polar_voltage_helper(self, Vpolar=None):
+        if Vpolar is None:
+            V, theta = self.get_current_voltage() 
+        else:
+            if Vpolar[0] is None:
+                V = self.get_current_voltage_magnitude()
+            if Vpolar[1] is None:
+                theta = self.get_current_voltage_angle()
+        
+        return V, theta
+        
 
 
     def get_id(self):

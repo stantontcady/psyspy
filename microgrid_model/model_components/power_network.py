@@ -37,39 +37,39 @@ class PowerNetwork(object):
         return output
         
     
-    def get_list_of_bus_ids(self):
-        bus_id_list = []
-        for bus in self.buses:
-            bus_id_list.append(bus.get_id())
-        return bus_id_list
+    # def get_list_of_bus_ids(self):
+    #     bus_id_list = []
+    #     for bus in self.buses:
+    #         bus_id_list.append(bus.get_id())
+    #     return bus_id_list
 
     
-    def get_list_of_bus_types(self):
-        bus_id_list = self.get_admittance_matrix_index_bus_id_mapping(suppress_exception=True)
-        if bus_id_list is None:
-            bus_id_list = self.get_list_of_bus_ids()
-        bus_type_list = frompyfunc(self.get_bus_type_by_id, 1, 1)(bus_id_list)
-        return bus_type_list
+    # def get_list_of_bus_types(self):
+    #     bus_id_list = self.get_admittance_matrix_index_bus_id_mapping(suppress_exception=True)
+    #     if bus_id_list is None:
+    #         bus_id_list = self.get_list_of_bus_ids()
+    #     bus_type_list = frompyfunc(self.get_bus_type_by_id, 1, 1)(bus_id_list)
+    #     return bus_type_list
     
     
-    def has_pq_bus(self, bus_type_list=None):
-        return self._has_x_type_bus('pq_bus', bus_type_list)
-
-
-    def has_pv_bus(self, bus_type_list=None):
-        return self._has_x_type_bus('pq_bus', bus_type_list)
-
-
-    def _has_x_type_bus(self, type_to_match, bus_type_list=None):
-        if bus_type_list is None:
-            bus_type_list = self.get_list_of_bus_types()
-            
-        num_x_type_buses = sum([1 if bus_type == type_to_match else 0 for bus_type in bus_type_list])
-        
-        if num_x_type_buses == 0:
-            return False
-        
-        return num_x_type_buses
+    # def has_pq_bus(self, bus_type_list=None):
+    #     return self._has_x_type_bus('pq_bus', bus_type_list)
+    #
+    #
+    # def has_pv_bus(self, bus_type_list=None):
+    #     return self._has_x_type_bus('pq_bus', bus_type_list)
+    #
+    #
+    # def _has_x_type_bus(self, type_to_match, bus_type_list=None):
+    #     if bus_type_list is None:
+    #         bus_type_list = self.get_list_of_bus_types()
+    #
+    #     num_x_type_buses = sum([1 if bus_type == type_to_match else 0 for bus_type in bus_type_list])
+    #
+    #     if num_x_type_buses == 0:
+    #         return False
+    #
+    #     return num_x_type_buses
     
 
     def set_solver_tolerance(self, new_tolerance):
@@ -322,11 +322,14 @@ class PowerNetwork(object):
         return False
 
 
-    def select_slack_bus(self):          
-        slack_bus_id = None
-        for bus in self.buses:
-            if bus.is_pv_bus() is True and slack_bus_id is None:
-                return self.set_slack_bus(bus)
+    def select_slack_bus(self):
+        # this will be None if the slack bus is not yet set
+        slack_bus_id = self.get_slack_bus_id()
+        
+        if slack_bus_id is None:
+            for bus in self.buses:
+                if bus.has_generator_model() is True and slack_bus_id is None:
+                    return self.set_slack_bus(bus)
 
         return slack_bus_id
 
@@ -334,20 +337,32 @@ class PowerNetwork(object):
     def get_slack_bus_id(self):
         try:
             slack_bus_id = self.slack_bus_id
-            return slack_bus_id
+            if slack_bus_id is not None:
+                return slack_bus_id
         except AttributeError:
-            raise PowerNetworkError('no slack bus selected for this power network')
+            pass
+
+        return None
+        
+    
+    def get_slack_bus(self):
+        slack_bus_id = self.get_slack_bus_id()
+        if slack_bus_id is not None:
+            return self.get_bus_by_id(slack_bus_id)
+        return None
 
 
     def set_slack_bus(self, bus):
-        bus.voltage_magnitude_static = True
-        bus.voltage_angle_static = True
+        bus.make_slack_bus()
         self.slack_bus_id = bus.get_id()
         return self.slack_bus_id
-
-
+        
+    
     def unset_slack_bus(self):
-        self.slack_bus_id = None
+        bus = self.get_slack_bus()
+        if bus is not None:
+            bus.unmake_slack_bus()
+            self.slack_bus_id = None
 
 
     def is_voltage_angle_reference_bus(self, bus):
@@ -386,11 +401,17 @@ class PowerNetwork(object):
         else:
             return None
             
-            
+    def get_angular_speed_of_voltage_angle_reference_bus(self):
+        reference_bus = self.get_voltage_angle_reference_bus()
+        if reference_bus is None:
+            return None
+        else:
+            reference_bus.get_current_angular_speed()
+
+
     def shift_bus_voltage_angles(self, angle_to_shift):
         for bus in self.buses:
-            current_angle = bus.get_current_voltage_angle()
-            bus.update_voltage_angle((current_angle-angle_to_shift), replace=True)
+            bus.shift_voltage_angles(angle_to_shift)
 
 
     def _get_admittance_matrix_index_from_bus_id(self, bus_id_to_find):
@@ -426,7 +447,7 @@ class PowerNetwork(object):
             bus = self.get_bus_by_id(bus_id)
             if self.is_slack_bus_by_id(bus_id) is True:
                 continue
-            V, theta = bus.get_current_voltage()
+            V, theta = bus.get_current_voltage_polar()
             # if self.is_voltage_angle_reference_bus_by_id(bus_id) is False:
             voltage_vector = append(voltage_vector, [theta])
             if bus.is_pv_bus() is False:
@@ -447,7 +468,7 @@ class PowerNetwork(object):
                 bus.update_voltage_angle(new_voltage_vector[i], replace=replace)
             else:
                 # all other buses update both the voltage magnitude and angle
-                bus.update_voltage(new_voltage_vector[i+1], new_voltage_vector[i], replace=replace)
+                bus.update_voltage_polar((new_voltage_vector[i+1], new_voltage_vector[i]), replace=replace)
                 i += 1
 
             i += 1
@@ -482,9 +503,9 @@ class PowerNetwork(object):
             Vpolar_i = voltage_list[index]
             Yii = self_admittance_list[index]
             
-            P_net, Q_net = self.get_bus_by_id(bus_id).get_specified_real_reactive_power()
+            P_injected, Q_injected = self.get_bus_by_id(bus_id).get_apparent_power_injection()
             
-            fp, fq = fp_fq_helper(P_net, Q_net, Vpolar_i, Yii,
+            fp, fq = fp_fq_helper(P_injected, Q_injected, Vpolar_i, Yii,
                                   admittance_matrix_index_bus_id_mapping,
                                   voltage_list, connected_bus_ids_list[index],
                                   interconnection_admittance_list[index])
@@ -501,7 +522,7 @@ class PowerNetwork(object):
         admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
         slack_bus_id = self.get_slack_bus_id()
 
-        (voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list, interconnection_admittance_list,
+        (voltage_is_static_list, has_dynamic_model_list, connected_bus_ids_list, interconnection_admittance_list,
          self_admittance_list, jacobian_indices) = self._get_static_vars_list()
 
         voltage_list, dgr_derivatives = self._get_varying_vars_list(admittance_matrix_index_bus_id_mapping)
@@ -515,7 +536,7 @@ class PowerNetwork(object):
 
         J = zeros((n, n))
         Parallel()(delayed(compute_jacobian_row_by_bus)
-                   (J, index, voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list,
+                   (J, index, voltage_is_static_list, has_dynamic_model_list, connected_bus_ids_list,
                     jacobian_indices, admittance_matrix_index_bus_id_mapping,
                     interconnection_admittance_list, self_admittance_list, voltage_list,
                     dgr_derivatives) for index, _ in enumerate(admittance_matrix_index_bus_id_mapping))
@@ -532,10 +553,10 @@ class PowerNetwork(object):
 
     def _varying_var_helper(self, bus_id):
         bus = self.get_bus_by_id(bus_id)
-        Vpolar = bus.get_current_voltage()
+        Vpolar = bus.get_current_voltage_polar()
         
-        if bus.has_dynamic_dgr_attached() is True and bus.is_pv_bus() is False:
-            dgr_derivatives = bus.dgr.get_real_reactive_power_derivatives(Vpolar)
+        if bus.has_dynamic_model() is True and bus.is_pv_bus() is False:
+            dgr_derivatives = bus.get_apparent_power_derivatives(Vpolar)
         else:
             dgr_derivatives = ()
 
@@ -544,12 +565,12 @@ class PowerNetwork(object):
         
     def save_static_vars_list(self, index_bus_id_mapping=None):
 
-        (voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list,
+        (voltage_is_static_list, has_dynamic_model_list, connected_bus_ids_list,
          interconnection_admittance_list, self_admittance_list,
          jacobian_indices) = self._generate_static_vars_list(index_bus_id_mapping)
          
         self.voltage_is_static_list = voltage_is_static_list
-        self.has_dynamic_dgr_list = has_dynamic_dgr_list
+        self.has_dynamic_model_list = has_dynamic_model_list
         self.connected_bus_ids_list = connected_bus_ids_list
         self.interconnection_admittance_list = interconnection_admittance_list
         self.self_admittance_list = self_admittance_list
@@ -563,7 +584,7 @@ class PowerNetwork(object):
         else:
             try:
                 voltage_is_static_list = self.voltage_is_static_list
-                has_dynamic_dgr_list = self.has_dynamic_dgr_list
+                has_dynamic_model_list = self.has_dynamic_model_list
                 connected_bus_ids_list = self.connected_bus_ids_list
                 interconnection_admittance_list = self.interconnection_admittance_list
                 self_admittance_list = self.self_admittance_list
@@ -574,7 +595,7 @@ class PowerNetwork(object):
         if recompute is True:
             return self._generate_static_vars_list(index_bus_id_mapping)
         else:
-            return (voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list,
+            return (voltage_is_static_list, has_dynamic_model_list, connected_bus_ids_list,
                     interconnection_admittance_list, self_admittance_list, jacobian_indices)
 
 
@@ -582,7 +603,7 @@ class PowerNetwork(object):
         if index_bus_id_mapping is None:
             index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
         
-        (voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list, interconnection_admittance_list, 
+        (voltage_is_static_list, has_dynamic_model_list, connected_bus_ids_list, interconnection_admittance_list, 
          self_admittance_list) = frompyfunc(self._static_var_helper, 1, 5)(index_bus_id_mapping)
         
         jacobian_indices = []
@@ -597,7 +618,7 @@ class PowerNetwork(object):
                 else:
                     current_index += 2   
 
-        return (voltage_is_static_list, has_dynamic_dgr_list, connected_bus_ids_list,
+        return (voltage_is_static_list, has_dynamic_model_list, connected_bus_ids_list,
                 interconnection_admittance_list, self_admittance_list, jacobian_indices)
 
 
@@ -613,8 +634,7 @@ class PowerNetwork(object):
             Yik = self._get_admittance_value_from_bus_ids(bus_id, connected_bus_id)
             interconnection_admittance.append(Yik)
 
-        return (bus.is_voltage_static(), bus.has_dynamic_dgr_attached(), connected_bus_ids,
-                interconnection_admittance, self_admittance)
+        return (bus.is_voltage_polar_static(), bus.has_dynamic_model(), connected_bus_ids, interconnection_admittance, self_admittance)
 
 
     def solve_power_flow(self, optimal_ordering=True, append=True, force_static_var_recompute=False):
@@ -657,8 +677,8 @@ class PowerNetwork(object):
         bus_i_id = bus_i.get_id()
         bus_j_id = bus_j.get_id()
         Gij, Bij = self._get_admittance_value_from_bus_ids(bus_i_id, bus_j_id)
-        Vi, thetai = bus_i.get_current_voltage() 
-        Vj, thetaj = bus_j.get_current_voltage()
+        Vi, thetai = bus_i.get_current_voltage_polar() 
+        Vj, thetaj = bus_j.get_current_voltage_polar()
         Pij = -Gij*Vi**2 + Vi*Vj*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
         Qij = -Bij*Vi**2 + Vi*Vj*(Gij*sin(thetai - thetaj) + Bij*cos(thetai - thetaj))
         return Pij, Qij
@@ -683,19 +703,45 @@ class PowerNetwork(object):
                                                             interconnection_admittance_list[index])
 
 
-    def identify_dynamic_dgr_buses(self):
-        self.dynamic_dgr_bus_ids = []
-        for bus in self.buses:
-            if bus.has_dynamic_dgr_attached() is True:
-                self.dynamic_dgr_bus_ids.append(bus.get_id())
-                
-        return self.dynamic_dgr_bus_ids
-                
-
-    def get_dynamic_dgr_buses(self):
+    def get_buses_with_dynamic_models(self):
         try:
-            dynamic_dgr_bus_ids = self.dynamic_dgr_bus_ids
+            bus_ids_with_dynamic_models = self.bus_ids_with_dynamic_models
         except AttributeError:
-            dynamic_dgr_bus_ids = self.identify_dynamic_dgr_buses()
+            bus_ids_with_dynamic_models = [bus.get_id() for bus in self.buses if bus.has_dynamic_model()]
+            self.bus_ids_with_dynamic_models = bus_ids_with_dynamic_models
+            
+        return [self.get_bus_by_id(bus_id) for bus_id in bus_ids_with_dynamic_models]
         
-        return [self.get_bus_by_id(bus_id) for bus_id in dynamic_dgr_bus_ids]
+
+    def compute_initial_values_for_dynamic_simulation(self):
+        [bus.prepare_for_dynamic_simulation_initial_value_calculation() for bus in self.get_buses_with_dynamic_models()]
+        self.select_slack_bus()
+        return self.solve_power_flow(append=False, force_static_var_recompute=True)
+
+
+    def initialize_dynamic_model_states(self):
+        for bus in self.get_buses_with_dynamic_models():
+            Snetwork = self.compute_apparent_power_injected_from_network(bus)
+            bus.initialize_dynamic_states(Snetwork)
+
+
+    def prepare_for_dynamic_simulation(self, reference_bus_id=None):
+        # need a reference bus for dynamic simulation, use the slack bus if none provided
+        if reference_bus_id is None:
+            reference_bus_id = self.get_slack_bus_id()
+            
+        self.unset_slack_bus()
+        self.set_voltage_angle_reference_bus_by_id(reference_bus_id)
+        # retrieve referernce bus this way to ensure previous steps worked
+        reference_bus = self.get_voltage_angle_reference_bus()
+        if reference_bus.has_dynamic_model() is False:
+            raise PowerNetworkError('selected reference bus must have a dynamic model')
+        reference_angle = reference_bus.model.get_internal_voltage_angle()
+        
+        # TO DO: write function for shifting internal angle for structure preserving sync gen model
+        self.shift_bus_voltage_angles(reference_angle)
+        
+        [bus.prepare_for_dynamic_simulation() for bus in self.get_buses_with_dynamic_models()]
+        
+        # need to update static variables to account for some changed bus properties (e.g., static voltage magnitude)
+        self.save_static_vars_list()
