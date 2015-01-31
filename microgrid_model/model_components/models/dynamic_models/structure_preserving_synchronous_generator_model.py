@@ -83,12 +83,6 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
     def _prepare_for_initial_value_calculation(self):
         # need to emulate a PV bus during initial value
         self.make_voltage_magnitude_static()
-        return None
-
-
-    def _prepare_for_simulation(self):
-        self.unmake_voltage_magnitude_static()
-        return None
 
 
     def _initialize_states(self, Vpolar, Snetwork):
@@ -96,7 +90,6 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
         set_initial_conditions(self, 'd', d0)
         set_initial_conditions(self, 'w', w0)
         set_initial_conditions(self, 'P', P0)
-        return None
 
 
     def _shift_internal_voltage_angle(self, angle_to_shift):
@@ -106,6 +99,10 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
         current_angle = self.d[0]
         self.d = array([current_angle - angle_to_shift])
         return self.d[0]
+
+
+    def _prepare_for_simulation(self):
+        self.unmake_voltage_magnitude_static()
 
 
     def _get_internal_voltage_angle(self):
@@ -156,7 +153,7 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
         current_states = self._get_current_state_array()
         updated_states = numerical_integration_method(current_states, self._get_state_time_derivative_array)
         self._save_new_state_array(updated_states)
-        return updated_states
+        return None, None
 
 
     def _get_state_time_derivative_array(self, current_states=None, current_setpoints=None):

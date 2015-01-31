@@ -1,2 +1,3 @@
 from dynamic_model import DynamicModel
+from kuramoto_oscillator_model import KuramotoOscillatorModel
 from structure_preserving_synchronous_generator_model import StructurePreservingSynchronousGeneratorModel

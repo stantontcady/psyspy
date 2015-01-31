@@ -5,12 +5,13 @@ from model_components.helper_functions import impedance_admittance_wrangler
 # from model_components.nodes import Bus, Node
 # from model_components.nodes.loads import ConstantPowerLoad, Load, PassiveLoad, PQBus
 # from model_components.nodes.sources import DGR, PVBus, SynchronousDGR
-from model_components.models.dynamic_models import StructurePreservingSynchronousGeneratorModel
+from model_components.models.dynamic_models import KuramotoOscillatorModel, StructurePreservingSynchronousGeneratorModel
 from model_components.models.static_models import ConstantApparentPowerModel, ConstantVoltageMagnitudeRealPowerModel
 from model_components.power_line import PowerLine
 from model_components.power_network import PowerNetwork
 
-from simulation_resources.load_changes import PermanentConstantPowerLoadChange, TemporaryConstantPowerLoadChange
+# from simulation_resources.load_changes import PermanentConstantPowerLoadChange, TemporaryConstantPowerLoadChange
 from simulation_resources.numerical_methods import NewtonRhapson, RungeKutta45
-from simulation_resources.power_line_changes import TemporaryPowerLineImpedanceChange
+# from simulation_resources.power_line_changes import TemporaryPowerLineImpedanceChange
+from simulation_resources.kuramoto_oscillator_model_changes import KuramotoOscillatorModelNaturalFrequencyChange
 from simulation_resources.simulation_routine import SimulationRoutine

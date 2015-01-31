@@ -84,5 +84,4 @@ class NewtonRhapson(object):
             if error < self.tolerance:
                 break
             k += 1
-            
         return x_next, k

@@ -1,4 +1,4 @@
-from logging import debug, info, warning, getLogger
+from logging import debug, info, warning
 from math import ceil
 
 from numpy import empty
@@ -12,10 +12,7 @@ class SimulationRoutine(object):
     
     def __init__(self, power_network, simulation_time, system_changes=None, time_step=0.001, power_flow_tolerance=0.0001):
         
-        # if self.has_nondynamic_bus_types(power_network) is False:
         self.network = power_network
-        # else:
-            # raise TypeError('power network cannot contain any buses of type PVBus or PQBus')
 
         self.network.set_solver_tolerance(power_flow_tolerance)
         self.simulation_time = simulation_time
@@ -80,16 +77,16 @@ class SimulationRoutine(object):
             
     def run_simulation(self):
         self.current_time = 0
-        logger = getLogger()
-        # logger.setLevel(10)
         
-        _ = self.network.compute_initial_values_for_dynamic_simulation()
+        n = self.network
         
-        self.network.initialize_dynamic_model_states()
+        x = n.compute_initial_values_for_dynamic_simulation()
         
-        self.network.prepare_for_dynamic_simulation()
+        n.initialize_dynamic_model_states()
+        
+        n.prepare_for_dynamic_simulation()
 
-        reference_bus = self.network.get_voltage_angle_reference_bus()
+        reference_bus = n.get_voltage_angle_reference_bus()
 
         for k in range(0, self.num_simulation_steps):
             self.time_vector[k] = self.current_time
@@ -98,25 +95,28 @@ class SimulationRoutine(object):
 
             if admittance_matrix_recompute_required is True:
             #     # this function forces a recomputation of the admittance matrix which may be necessary to account for change
-                _, _ = self.network.save_admittance_matrix()
+                _, _ = n.save_admittance_matrix()
                 force_static_var_recompute = True
             self.current_time += self.time_step
 
             reference_velocity = reference_bus.get_current_dynamic_angular_velocity()
             
-            for bus in self.network.get_buses_with_dynamic_models():
-                if self.network.is_voltage_angle_reference_bus(bus) is not True:
+            n.save_injected_apparent_power_to_bus_models()
+            
+            append_loop = False
+            
+            for bus in n.get_buses_with_dynamic_models():
+                if n.is_voltage_angle_reference_bus(bus) is not True:
                     bus.set_reference_dynamic_angular_velocity(reference_velocity)
                 
                 bus.save_bus_voltage_polar_to_model()
                 
                 bus.update_dynamic_states(numerical_integration_method=self.numerical_method.get_updated_states)
-                
 
             # solve power flow without slack bus, make sure to leave append=True (this is the default option), tolerance=self.power_flow_tolerance
             if k == 0:
                 append = False
             else:
                 append = True
-            _ = self.network.solve_power_flow(force_static_var_recompute=force_static_var_recompute,
-                                              append=append)
+
+            _ = n.solve_power_flow(force_static_var_recompute=force_static_var_recompute, append=append)

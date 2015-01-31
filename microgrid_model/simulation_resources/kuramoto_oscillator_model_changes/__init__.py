@@ -1,0 +1,1 @@
+from kuramoto_osciallator_model_natural_frequency_change import KuramotoOscillatorModelNaturalFrequencyChange

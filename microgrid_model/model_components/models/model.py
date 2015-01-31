@@ -28,6 +28,16 @@ class Model(object):
             self.is_generator = is_generator
 
 
+    def __repr__(self):
+        try:
+            return '\n'.join([line for line in self.repr_helper()])
+        except AttributeError:
+            try:
+                model_name = self.model_type['full_name']
+            except AttributeError:
+                return '<Model %i>' % self._model_id
+
+
     def get_apparent_power_injection(self, Vpolar):
         try:
             P = self._get_real_power_injection(Vpolar)
@@ -78,7 +88,7 @@ class Model(object):
             pass
         else:
             try:
-                return self.prepare_for_initial_value_calculation()
+                self.prepare_for_initial_value_calculation()
             except ModelError:
                 raise ModelError('model %i does not expose a method for preparing for initial value calculation' % (self._model_id))
 
@@ -89,7 +99,7 @@ class Model(object):
             pass
         else:
             try:
-                return self.initialize_states(Vpolar, Snetwork)
+                self.initialize_states(Vpolar, Snetwork)
             except ModelError:
                 raise ModelError('model %i does not expose a method for getting dynamic state time derivatives' % (self._model_id))
 
@@ -108,7 +118,7 @@ class Model(object):
     def shift_dynamic_internal_voltage_angle(self, angle_to_shift):
         if self.is_dynamic is False:
             debug('Model %i is not dynamic, cannot shift internal voltage angle' % (self._model_id))
-            pass
+            return None
         else:
             try:
                 return self.shift_internal_voltage_angle(angle_to_shift)
@@ -133,7 +143,7 @@ class Model(object):
             pass
         else:
             try:
-                return self.set_reference_angular_velocity(reference_velocity)
+                self.set_reference_angular_velocity(reference_velocity)
             except ModelError:
                 debug('Model %i does not expose a method for setting the reference angular velocity' % (self._model_id))
                 pass
@@ -141,10 +151,19 @@ class Model(object):
 
     def save_bus_voltage_polar(self, Vpolar):
         try:
-            return self._save_bus_voltage_polar(Vpolar)
+            self._save_bus_voltage_polar(Vpolar)
         except AttributeError:
             debug('Model %i does not expose a method for saving the bus polar voltage, saving to member variable Vpolar' % (self._model_id))
             self.Vpolar = Vpolar
+            pass
+
+
+    def save_apparent_power_injected_from_network(self, Snetwork):
+        try:
+            self._save_apparent_power_injected_from_network(Snetwork)
+        except AttributeError:
+            debug('Model %i does not expose a method for saving the apparent power injected from the network, saving to member variable Snetwork' % (self._model_id))
+            self.Snetwork = Snetwork
             pass
             
 
@@ -154,32 +173,10 @@ class Model(object):
             pass
         else:
             try:
-                return self.prepare_for_simulation()
+                self.prepare_for_simulation()
             except ModelError:
                 debug('Could not prepare model %i for dynamic simulation, no action taken' % (self._model_id))
                 pass
-
-
-    # def get_current_dynamic_state_array(self):
-    #     if self.is_dynamic is False:
-    #         debug('Model %i is not dynamic, cannot get dynamic state array' % (self._model_id))
-    #         return None
-    #     else:
-    #         try:
-    #             return self.get_state_time_derivative_array(Vpolar)
-    #         except ModelError:
-    #             raise ModelError('model %i does not expose a method for getting dynamic state time derivatives' % (self._model_id))
-    #
-    #
-    # def get_dynamic_state_time_derivative_array(self, Vpolar):
-    #     if self.is_dynamic is False:
-    #         debug('Model %i is not dynamic, cannot get time derivative array' % (self._model_id))
-    #         return None
-    #     else:
-    #         try:
-    #             return self.get_state_time_derivative_array(Vpolar)
-    #         except ModelError:
-    #             raise ModelError('model %i does not expose a method for getting dynamic state time derivatives' % (self._model_id))
 
 
     def update_dynamic_states(self, numerical_integration_method):
@@ -188,7 +185,7 @@ class Model(object):
             pass
         else:
             try:
-                return self.update_states(numerical_integration_method)
+                self.update_states(numerical_integration_method)
             except ModelError:
                 raise ModelError('model %i does not expose a method for updating the dynamic states' % (self._model_id))
 

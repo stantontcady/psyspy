@@ -69,8 +69,8 @@ def integrate(theta0, n, tsim, tstep):
         theta_array[k, :] = get_updated_states(theta_array[k-1, :], solver)
         t_vector[k] = t
         t += tstep
-        if t >= tperturb_start and t < (tperturb_start + tstep):
-            U[5] = -1.1
+        # if t >= tperturb_start and t < (tperturb_start + tstep):
+        #     U[5] = -1.1
         #if t >= tperturb_end and t < (tperturb_end + tstep):
         #    U[5] = -0.9
     return theta_array, t_vector
@@ -109,7 +109,8 @@ def get_function_vector():
     current_theta = get_current_theta(omit_first_element=False)
     function_vector = _power_flow_balance(n, current_theta, U)
     return function_vector[1:]
-    
+
+
 def _power_flow_balance(n, theta, U):
     result = zeros(n)
     for i in range(0, n):
@@ -118,8 +119,7 @@ def _power_flow_balance(n, theta, U):
         result[i] = network_flow(B[i, j], B[i, k], theta, i, j, k) - U[i]
     
     return result
-    
-        
+
 
 def generate_jacobian_matrix():
     # global vars
@@ -180,5 +180,6 @@ U[0] = network_flow(B[0, j], B[0, k], theta0, 0, j, k)
 
 theta_array, t = integrate(theta0, n, tsim, tstep)
 
+plot_thetas(tsim, t, theta_array)
 
 embed()

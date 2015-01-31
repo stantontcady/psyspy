@@ -14,7 +14,7 @@ class Bus(object):
         if model is None:
             model = Model()
         elif isinstance(model, Model) is False:
-            raise ModelError('provided model must an instance of the Model type or a subclass thereof')
+            raise TypeError('provided model must an instance of the Model type or a subclass thereof')
             
         self.model = model
 
@@ -77,13 +77,12 @@ class Bus(object):
 
 
     def prepare_for_dynamic_simulation(self):
-        # 
-        return self.model.prepare_for_dynamic_simulation()
+        self.model.prepare_for_dynamic_simulation()
 
 
     def initialize_dynamic_states(self, Snetwork):
         Vpolar = self.get_current_voltage_polar()
-        return self.model.initialize_dynamic_states(Vpolar, Snetwork)
+        self.model.initialize_dynamic_states(Vpolar, Snetwork)
         
     
     def get_current_dynamic_state_array(self):
@@ -118,11 +117,15 @@ class Bus(object):
 
     def save_bus_voltage_polar_to_model(self):
         Vpolar = self.get_current_voltage_polar()
-        return self.model.save_bus_voltage_polar(Vpolar)
+        self.model.save_bus_voltage_polar(Vpolar)
+
+
+    def save_injected_apparent_power_to_model(self, Snetwork):
+        self.model.save_apparent_power_injected_from_network(Snetwork)
 
 
     def update_dynamic_states(self, numerical_integration_method):
-        return self.model.update_dynamic_states(numerical_integration_method)
+        self.model.update_dynamic_states(numerical_integration_method)
 
 
     def set_initial_voltage_polar(self, Vpolar=()):
@@ -265,23 +268,43 @@ class Bus(object):
         if self.has_dynamic_model() is True:
             _ = self.model.shift_dynamic_internal_voltage_angle(angle_to_shift)
 
-            
+
     def make_slack_bus(self):
+        self.is_voltage_polar_static_old = self.is_voltage_polar_static()
         v_static, theta_static = self.model.make_voltage_polar_static()
         if v_static is not True and theta_static is not True:
             raise ModelError('cannot change static flags for model')
 
 
     def unmake_slack_bus(self):
-        v_static, theta_static = self.model.unmake_voltage_polar_static()
-        if v_static is not False and theta_static is not False:
-            raise ModelError('cannot change static flags for model')
+        self.restore_is_voltage_polar_static()
 
+
+    def restore_is_voltage_polar_static(self):
+        try:
+            v_static_old, theta_static_old = self.is_voltage_polar_static_old
+        except AttributeError:
+            debug('cannot restore is_voltage_polar_static, no previous values available')
+        
+        if v_static_old is True:
+            self.model.make_voltage_magnitude_static()
+        else:
+            self.model.unmake_voltage_magnitude_static()
+            
+        if theta_static_old is True:
+            self.model.make_voltage_angle_static()
+        else:
+            self.model.unmake_voltage_angle_static()
+        
+        v_static, theta_static = self.is_voltage_polar_static()
+        if v_static != v_static_old or theta_static != theta_static_old:
+            raise BusError('could not restore is_voltage_polar_static')
+        
 
     def has_dynamic_model(self):
         return self.model.is_dynamic
-        
-    
+
+
     def has_generator_model(self):
         return self.model.is_generator
 
@@ -289,33 +312,8 @@ class Bus(object):
     def get_apparent_power_injection(self):
         Vpolar = self.get_current_voltage_polar()
         return self.model.get_apparent_power_injection(Vpolar)
-        # P = 0
-        # Q = 0
-        # if self._node_type == 'pv_bus':
-        #     PVp, _ = self.get_current_real_reactive_power()
-        #     P += PVp
-        # elif self.has_dynamic_dgr_attached() is True:
-        #     if self.is_temporary_pv_bus() is True:
-        #         setpoints = self.dgr.get_current_setpoints(as_dictionary=True)
-        #         governor_setpoint = setpoints['u']
-        #         P += governor_setpoint
-        #     else:
-        #         Pgen, Qgen = self.dgr.get_real_reactive_power_output()
-        #         if Pgen != nan:
-        #             P += Pgen
-        #         if Qgen != nan:
-        #             Q += Qgen
-        # try:
-        #     for load in self.loads:
-        #         if load._node_type == 'constant_power_load':
-        #             P -= load.P
-        #             Q -= load.Q
-        # except AttributeError:
-        #     pass
-        #
-        #
-        # return P, Q
-        
+
+
     def is_voltage_polar_static(self):
         return self.is_voltage_magnitude_static(), self.is_voltage_angle_static()
 
@@ -364,40 +362,6 @@ class Bus(object):
             return self.model.is_voltage_angle_static()
         except AttributeError, ModelError:
             return False
-            
-    
-
-
-    # def make_voltage_magnitude_static(self):
-    #     self.voltage_magnitude_static = True
-    #     return self.is_voltage_magnitude_static()
-    #
-    #
-    # def make_voltage_angle_static(self):
-    #     self.voltage_angle_static = True
-    #     return self.is_voltage_angle_static()
-    #
-    #
-    # def make_voltage_static(self):
-    #     _ = self.make_voltage_magnitude_static()
-    #     _ = self.make_voltage_angle_static()
-    #     return self.is_voltage_static()
-    #
-    #
-    # def stop_voltage_magnitude_static(self):
-    #     self.voltage_magnitude_static = False
-    #     return self.is_voltage_magnitude_static()
-    #
-    #
-    # def stop_voltage_angle_static(self):
-    #     self.voltage_angle_static = False
-    #     return self.is_voltage_angle_static()
-    #
-    #
-    # def stop_voltage_static(self):
-    #     _ = self.stop_voltage_magnitude_static()
-    #     _ = self.stop_voltage_angle_static()
-    #     return self.is_voltage_static()
 
 
     # def get_jacobian_block(self, Yij, Vpolar_i=None, Vpolar_i_static=None, Vpolar_j=None, Vpolar_j_static=None):

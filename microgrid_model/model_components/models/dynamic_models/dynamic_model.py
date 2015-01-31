@@ -1,4 +1,4 @@
-
+from logging import debug
 
 from ..model import Model
 from microgrid_model.exceptions import ModelError
@@ -8,20 +8,20 @@ class DynamicModel(Model):
     
     def __init__(self, voltage_magnitude_static=False, voltage_angle_static=False, is_generator=False):
         
-        Model.__init__(self, voltage_magnitude_static=False, voltage_angle_static=False,
-                             is_dynamic=True, is_generator=False)
+        Model.__init__(self, voltage_magnitude_static=voltage_magnitude_static, voltage_angle_static=voltage_angle_static,
+                             is_dynamic=True, is_generator=is_generator)
         
         
     def prepare_for_initial_value_calculation(self):
         try:
-            return self._prepare_for_initial_value_calculation()
+            self._prepare_for_initial_value_calculation()
         except AttributeError:
             raise ModelError('dynamic model %i does not have a member function for preparing for initial value calculation' % (self._model_id))
 
 
     def initialize_states(self, Vpolar, Snetwork):
         try:
-            return self._initialize_states(Vpolar, Snetwork)
+            self._initialize_states(Vpolar, Snetwork)
         except AttributeError:
             raise ModelError('dynamic model %i does not have a member function for initializing states' % (self._model_id))
             
@@ -43,28 +43,48 @@ class DynamicModel(Model):
 
     def set_reference_angular_velocity(self, reference_velocity):
         try:
-            return self._set_reference_angular_velocity(reference_velocity)
+            self._set_reference_angular_velocity(reference_velocity)
         except AttributeError:
             debug('dynamic model %i does not have a member function for setting the reference angular velocity' % (self._model_id))
-            return None
+            pass
 
 
     def shift_internal_voltage_angle(self, angle_to_shift):
         try:
             return self._shift_internal_voltage_angle(angle_to_shift)
         except AttributeError:
-            raise ModelError('dynamic model %i does not have a member function for shifting internal voltage angle' % (self._model_id))
+            debug('dynamic model %i does not have a member function for shifting internal voltage angle' % (self._model_id))
+            pass
 
 
     def prepare_for_simulation(self):
         try:
-            return self._prepare_for_simulation()
+            self._prepare_for_simulation()
         except AttributeError:
             raise ModelError('dynamic model %i does not have a member function for getting the state time derivative array' % (self._model_id))
 
 
     def update_states(self, numerical_integration_method):
         try:
-            return self._update_states(numerical_integration_method)
+            self._update_states(numerical_integration_method)
         except AttributeError:
-            raise ModelError('dynamic model %i does not have a member function for updating states' % (self._model_id))
+            raise ModelError('dynamic model %i does not have a member function for updating states')
+        
+        # try:
+        #     current_states = self._get_current_state_array()
+        # except AttributeError:
+        #     raise ModelError('dynamic model %i does not have a member function for getting current states' % (self._model_id))
+        #
+        # try:
+        #     get_time_derivative_method = self._get_state_time_derivative_array
+        # except AttributeError:
+        #     raise ModelError('dynamic model %i does not have a member function for getting state time derivative array' % (self._model_id))
+        #
+        # try:
+        #     save_new_states_method = self._save_new_state_array
+        # except AttributeError:
+        #     raise ModelError('dynamic model %i does not have a member function for saving new state array' % (self._model_id))
+        #
+        # updated_states = numerical_integration_method(current_states, get_time_derivative_method)
+        # save_new_states_method(updated_states)
+        # return updated_states

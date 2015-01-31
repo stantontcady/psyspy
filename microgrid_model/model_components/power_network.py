@@ -35,42 +35,7 @@ class PowerNetwork(object):
         for power_line in self.power_lines:
             output += power_line.repr_helper(simple=True, indent_level_increment=2)
         return output
-        
-    
-    # def get_list_of_bus_ids(self):
-    #     bus_id_list = []
-    #     for bus in self.buses:
-    #         bus_id_list.append(bus.get_id())
-    #     return bus_id_list
 
-    
-    # def get_list_of_bus_types(self):
-    #     bus_id_list = self.get_admittance_matrix_index_bus_id_mapping(suppress_exception=True)
-    #     if bus_id_list is None:
-    #         bus_id_list = self.get_list_of_bus_ids()
-    #     bus_type_list = frompyfunc(self.get_bus_type_by_id, 1, 1)(bus_id_list)
-    #     return bus_type_list
-    
-    
-    # def has_pq_bus(self, bus_type_list=None):
-    #     return self._has_x_type_bus('pq_bus', bus_type_list)
-    #
-    #
-    # def has_pv_bus(self, bus_type_list=None):
-    #     return self._has_x_type_bus('pq_bus', bus_type_list)
-    #
-    #
-    # def _has_x_type_bus(self, type_to_match, bus_type_list=None):
-    #     if bus_type_list is None:
-    #         bus_type_list = self.get_list_of_bus_types()
-    #
-    #     num_x_type_buses = sum([1 if bus_type == type_to_match else 0 for bus_type in bus_type_list])
-    #
-    #     if num_x_type_buses == 0:
-    #         return False
-    #
-    #     return num_x_type_buses
-    
 
     def set_solver_tolerance(self, new_tolerance):
         return self.solver.set_tolerance(new_tolerance)
@@ -80,11 +45,11 @@ class PowerNetwork(object):
         if self.bus_in_network(bus) is False:
             self.buses.append(bus)
 
-    
+
     def add_power_line(self, power_line):
         self.power_lines.append(power_line)
 
-        
+
     def connect_buses(self, bus_a, bus_b, z=(), y=()):
         self.add_bus(bus_a)
         self.add_bus(bus_b)
@@ -92,16 +57,16 @@ class PowerNetwork(object):
         power_line = PowerLine(bus_a, bus_b, z, y)
         self.add_power_line(power_line)
         return power_line
-        
-        
+
+
     def generate_buses_index_bus_id_mapping(self):
         mapping = []
         for bus in self.buses:
             mapping.append(bus.get_id())
         self.buses_index_bus_id_mapping = mapping
         return mapping
-        
-    
+
+
     def get_buses_index_bus_id_mapping(self):
         try:
             mapping = self.buses_index_bus_id_mapping
@@ -510,7 +475,8 @@ class PowerNetwork(object):
                                   voltage_list, connected_bus_ids_list[index],
                                   interconnection_admittance_list[index])
 
-            function_vector = append(function_vector, fp)
+            if voltage_angle_is_static is False:
+                function_vector = append(function_vector, fp)
             
             if voltage_magnitude_is_static is False:
                 function_vector = append(function_vector, fq)
@@ -657,7 +623,6 @@ class PowerNetwork(object):
                                            get_function_vector_method=self._generate_function_vector)
 
         self._compute_and_save_line_power_flows(append=append)
-
         return x_root
         
         
@@ -738,10 +703,15 @@ class PowerNetwork(object):
             raise PowerNetworkError('selected reference bus must have a dynamic model')
         reference_angle = reference_bus.model.get_internal_voltage_angle()
         
-        # TO DO: write function for shifting internal angle for structure preserving sync gen model
         self.shift_bus_voltage_angles(reference_angle)
         
         [bus.prepare_for_dynamic_simulation() for bus in self.get_buses_with_dynamic_models()]
         
         # need to update static variables to account for some changed bus properties (e.g., static voltage magnitude)
         self.save_static_vars_list()
+
+
+    def save_injected_apparent_power_to_bus_models(self):
+        for bus in self.get_buses_with_dynamic_models():
+            Snetwork = self.compute_apparent_power_injected_from_network(bus)
+            bus.save_injected_apparent_power_to_model(Snetwork)
