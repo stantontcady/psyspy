@@ -19,9 +19,9 @@ class DynamicModel(Model):
             raise ModelError('dynamic model %i does not have a member function for preparing for initial value calculation' % (self._model_id))
 
 
-    def initialize_states(self, Vpolar, Snetwork):
+    def initialize_states(self):
         try:
-            self._initialize_states(Vpolar, Snetwork)
+            self._initialize_states()
         except AttributeError:
             raise ModelError('dynamic model %i does not have a member function for initializing states' % (self._model_id))
             
@@ -66,25 +66,19 @@ class DynamicModel(Model):
 
     def update_states(self, numerical_integration_method):
         try:
-            self._update_states(numerical_integration_method)
+            current_states = self._get_current_state_array()
         except AttributeError:
-            raise ModelError('dynamic model %i does not have a member function for updating states')
-        
-        # try:
-        #     current_states = self._get_current_state_array()
-        # except AttributeError:
-        #     raise ModelError('dynamic model %i does not have a member function for getting current states' % (self._model_id))
-        #
-        # try:
-        #     get_time_derivative_method = self._get_state_time_derivative_array
-        # except AttributeError:
-        #     raise ModelError('dynamic model %i does not have a member function for getting state time derivative array' % (self._model_id))
-        #
-        # try:
-        #     save_new_states_method = self._save_new_state_array
-        # except AttributeError:
-        #     raise ModelError('dynamic model %i does not have a member function for saving new state array' % (self._model_id))
-        #
-        # updated_states = numerical_integration_method(current_states, get_time_derivative_method)
-        # save_new_states_method(updated_states)
-        # return updated_states
+            raise ModelError('dynamic model %i does not have a member function for getting current states' % (self._model_id))
+
+        try:
+            get_time_derivative_method = self._get_state_time_derivative_array
+        except AttributeError:
+            raise ModelError('dynamic model %i does not have a member function for getting state time derivative array' % (self._model_id))
+
+        try:
+            save_new_states_method = self._save_new_state_array
+        except AttributeError:
+            raise ModelError('dynamic model %i does not have a member function for saving new state array' % (self._model_id))
+
+        updated_states = numerical_integration_method(current_states, get_time_derivative_method)
+        save_new_states_method(updated_states)

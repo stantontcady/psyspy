@@ -26,6 +26,10 @@ class PowerNetwork(object):
         self.power_lines.extend(power_lines)
         set_printoptions(linewidth=175)
         self.solver = NewtonRhapson(tolerance=solver_tolerance)
+        
+        for bus in self.buses:
+            bus.set_get_apparent_power_injected_from_network_method(self.compute_apparent_power_injected_from_network)
+            
 
         
     def __repr__(self):
@@ -522,7 +526,7 @@ class PowerNetwork(object):
         Vpolar = bus.get_current_voltage_polar()
         
         if bus.has_dynamic_model() is True and bus.is_pv_bus() is False:
-            dgr_derivatives = bus.get_apparent_power_derivatives(Vpolar)
+            dgr_derivatives = bus.get_apparent_power_derivatives()
         else:
             dgr_derivatives = ()
 
@@ -670,12 +674,12 @@ class PowerNetwork(object):
 
     def get_buses_with_dynamic_models(self):
         try:
-            bus_ids_with_dynamic_models = self.bus_ids_with_dynamic_models
+            buses_with_dynamic_models = self.buses_with_dynamic_models
         except AttributeError:
             bus_ids_with_dynamic_models = [bus.get_id() for bus in self.buses if bus.has_dynamic_model()]
-            self.bus_ids_with_dynamic_models = bus_ids_with_dynamic_models
+            self.buses_with_dynamic_models = [self.get_bus_by_id(bus_id) for bus_id in bus_ids_with_dynamic_models]
             
-        return [self.get_bus_by_id(bus_id) for bus_id in bus_ids_with_dynamic_models]
+        return self.buses_with_dynamic_models
         
 
     def compute_initial_values_for_dynamic_simulation(self):
@@ -686,8 +690,7 @@ class PowerNetwork(object):
 
     def initialize_dynamic_model_states(self):
         for bus in self.get_buses_with_dynamic_models():
-            Snetwork = self.compute_apparent_power_injected_from_network(bus)
-            bus.initialize_dynamic_states(Snetwork)
+            bus.initialize_dynamic_states()
 
 
     def prepare_for_dynamic_simulation(self, reference_bus_id=None):
@@ -710,6 +713,11 @@ class PowerNetwork(object):
         # need to update static variables to account for some changed bus properties (e.g., static voltage magnitude)
         self.save_static_vars_list()
 
+    
+    def prepare_for_dynamic_state_update(self, force_static_var_recompute=False):
+        for bus in self.get_buses_with_dynamic_models():
+            pass
+        
 
     def save_injected_apparent_power_to_bus_models(self):
         for bus in self.get_buses_with_dynamic_models():

@@ -8,40 +8,40 @@ from numpy import amax, amin
 
 
 from microgrid_model import Bus, PowerNetwork, ConstantApparentPowerModel
-from microgrid_model.model_components.models import KuramotoOscillatorModel
-from microgrid_model.simulation_resources import SimulationRoutine, KuramotoOscillatorModelNaturalFrequencyChange
+from microgrid_model.model_components.models import KuramotoOscillatorModel as Kuramoto
+from microgrid_model.simulation_resources import SimulationRoutine, KuramotoOscillatorModelNaturalFrequencyChange as KuramotoSetPointChange
 
 logger = getLogger()
 # logger.setLevel(10)
 
-g1 = KuramotoOscillatorModel(
+g1 = Kuramoto(
     parameters={'D': 0.125},
     initial_setpoint=0.67
 )
 
-g2 = KuramotoOscillatorModel(
+g2 = Kuramoto(
     parameters={'D': 0.0679},
     initial_setpoint=1.63
 )
 
-g3 = KuramotoOscillatorModel(
+g3 = Kuramoto(
     parameters={'D': 0.0479},
     initial_setpoint=0.85
 )
 
-l1 = KuramotoOscillatorModel(
+l1 = Kuramoto(
     parameters={'D': 0.0125},
     initial_setpoint=-1.0,
     is_generator=False
 )
 
-l2 = KuramotoOscillatorModel(
+l2 = Kuramoto(
     parameters={'D': 0.00679},
     initial_setpoint=-1.25,
     is_generator=False
 )
 
-l3 = KuramotoOscillatorModel(
+l3 = Kuramoto(
     parameters={'D': 0.00479},
     initial_setpoint=-0.9,
     is_generator=False
@@ -64,7 +64,7 @@ line5 = n.connect_buses(b3, b6, z=(0, 0.2286))
 line6 = n.connect_buses(b3, b4, z=(0, 0.1594))
 
 n.set_slack_bus(b1)
-c1 = KuramotoOscillatorModelNaturalFrequencyChange(affected_model=l2, new_natural_frequency=-1.1, start_time=0.5)
+c1 = KuramotoSetPointChange(affected_model=l2, new_natural_frequency=-1.1, start_time=0.5)
 # c1 = TemporaryConstantPowerLoadChange(start_time=0.5, end_time=2, affected_load=b5, new_P=1.5)
 # c2 = PermanentConstantPowerLoadChange(start_time=0.5, affected_load=lb, new_P=1)
 # c2 = TemporaryPowerLineImpedanceChange(affected_line=line4, start_time=1, end_time=1.05, new_z=(0.0, 0.269))

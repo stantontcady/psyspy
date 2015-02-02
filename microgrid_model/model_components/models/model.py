@@ -2,6 +2,7 @@ from itertools import count
 from logging import debug, info, warning
 
 from microgrid_model.exceptions import ModelError
+from IPython import embed
 
 class Model(object):
     _model_ids = count(0)
@@ -26,6 +27,10 @@ class Model(object):
 
         if check_boolean_parameter(is_generator) is True:
             self.is_generator = is_generator
+            
+        self._get_bus_polar_voltage_method = None
+        self._get_apparent_power_injected_by_network_method = None
+        self._get_polar_voltage_of_connected_buses_method = None
 
 
     def __repr__(self):
@@ -38,15 +43,47 @@ class Model(object):
                 return '<Model %i>' % self._model_id
 
 
-    def get_apparent_power_injection(self, Vpolar):
+    def set_get_bus_polar_voltage_method(self, method):
+        self._get_bus_polar_voltage_method = method
+
+
+    def get_polar_voltage_from_bus(self):
+        return self._call_method_from_parent_object('_get_bus_polar_voltage_method',
+                                                    'method for getting polar voltage from bus has not been set',
+                                                    'method for getting polar voltage from bus is not callable')
+
+
+    def set_get_apparent_power_injected_from_network(self, method):
+        self._get_apparent_power_injected_by_network_method = method
+
+
+    def get_apparent_power_injected_from_network(self):
+        return self._call_method_from_parent_object('_get_apparent_power_injected_by_network_method',
+                                                    'method for getting apparent power from network has not been set',
+                                                    'method for getting apparent power from network is not callable')
+
+
+    def _call_method_from_parent_object(self, method, attribute_error_message, callable_error_message):
+        if hasattr(self, method) is True:
+            method = getattr(self, method)
+        else:
+            raise AttributeError(attribute_error_message)
+
+        if hasattr(method, '__call__') is True:
+            return method()
+        else:
+            raise TypeError(callable_error_message)
+
+
+    def get_apparent_power_injection(self):
         try:
-            P = self._get_real_power_injection(Vpolar)
+            P = self._get_real_power_injection()
         except AttributeError:
             debug('Could not get real power for model %i, defaulting to P=0' % (self._model_id))
             P = 0
         
         try:
-            Q = self._get_reactive_power_injection(Vpolar)
+            Q = self._get_reactive_power_injection()
         except AttributeError:
             debug('Could not get real power for model %i, defaulting to Q=0' % (self._model_id))
             Q = 0
@@ -54,27 +91,27 @@ class Model(object):
         return P, Q
 
         
-    def get_apparent_power_derivatives(self, Vpolar):
+    def get_apparent_power_derivatives(self):
         try:
-            dP_dtheta = self._dP_dtheta_model(Vpolar)
+            dP_dtheta = self._dP_dtheta_model()
         except AttributeError:
             debug('Could not derivative of real power wrt voltage angle for model %i, defaulting to dP_dtheta=0' % (self._model_id))
             dP_dtheta = 0
         
         try:
-            dP_dV = self._dP_dV_model(Vpolar)
+            dP_dV = self._dP_dV_model()
         except AttributeError:
             debug('Could not derivative of real power wrt voltage magnitude for model %i, defaulting to dP_dV=0' % (self._model_id))
             dP_dV = 0
             
         try:
-            dQ_dtheta = self._dQ_dtheta_model(Vpolar)
+            dQ_dtheta = self._dQ_dtheta_model()
         except AttributeError:
             debug('Could not derivative of reactive power wrt voltage angle for model %i, defaulting to dQ_dtheta=0' % (self._model_id))
             dQ_dtheta = 0
         
         try:
-            dQ_dV = self._dQ_dV_model(Vpolar)
+            dQ_dV = self._dQ_dV_model()
         except AttributeError:
             debug('Could not derivative of reactive power wrt voltage magnitude for model %i, defaulting to dQ_dV=0' % (self._model_id))
             dQ_dV = 0
@@ -93,13 +130,13 @@ class Model(object):
                 raise ModelError('model %i does not expose a method for preparing for initial value calculation' % (self._model_id))
 
 
-    def initialize_dynamic_states(self, Vpolar, Snetwork):
+    def initialize_dynamic_states(self):
         if self.is_dynamic is False:
             debug('Model %i is not dynamic, cannot initialize dynamic states' % (self._model_id))
             pass
         else:
             try:
-                self.initialize_states(Vpolar, Snetwork)
+                self.initialize_states()
             except ModelError:
                 raise ModelError('model %i does not expose a method for getting dynamic state time derivatives' % (self._model_id))
 
@@ -149,22 +186,22 @@ class Model(object):
                 pass
 
 
-    def save_bus_voltage_polar(self, Vpolar):
-        try:
-            self._save_bus_voltage_polar(Vpolar)
-        except AttributeError:
-            debug('Model %i does not expose a method for saving the bus polar voltage, saving to member variable Vpolar' % (self._model_id))
-            self.Vpolar = Vpolar
-            pass
-
-
-    def save_apparent_power_injected_from_network(self, Snetwork):
-        try:
-            self._save_apparent_power_injected_from_network(Snetwork)
-        except AttributeError:
-            debug('Model %i does not expose a method for saving the apparent power injected from the network, saving to member variable Snetwork' % (self._model_id))
-            self.Snetwork = Snetwork
-            pass
+    # def save_bus_voltage_polar(self, Vpolar):
+    #     try:
+    #         self._save_bus_voltage_polar(Vpolar)
+    #     except AttributeError:
+    #         debug('Model %i does not expose a method for saving the bus polar voltage, saving to member variable Vpolar' % (self._model_id))
+    #         self.Vpolar = Vpolar
+    #         pass
+    #
+    #
+    # def save_apparent_power_injected_from_network(self, Snetwork):
+    #     try:
+    #         self._save_apparent_power_injected_from_network(Snetwork)
+    #     except AttributeError:
+    #         debug('Model %i does not expose a method for saving the apparent power injected from the network, saving to member variable Snetwork' % (self._model_id))
+    #         self.Snetwork = Snetwork
+    #         pass
             
 
     def prepare_for_dynamic_simulation(self):

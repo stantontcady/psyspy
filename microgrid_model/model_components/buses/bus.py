@@ -28,6 +28,8 @@ class Bus(object):
         self._bus_id = self._bus_ids.next() + 1
                 
         self.shunt_y = impedance_admittance_wrangler(shunt_z, shunt_y)
+        
+        self.model.set_get_bus_polar_voltage_method(self.get_current_voltage_polar)
 
 
     def __repr__(self):
@@ -53,23 +55,20 @@ class Bus(object):
             if self.shunt_y[1] != 0:
                 object_info.append('%sSusceptance: %0.3f' % (''.rjust(2*indent_level_increment), self.shunt_y[1]))
         
-        # try:
-        #     if self.loads != []:
-        #         object_info.append('%sConnected loads:' % (''.rjust(indent_level_increment)))
-        #     else:
-        #         object_info.append('%sNo loads connected!' % (''.rjust(indent_level_increment)))
-        #
-        #     for node in self.loads:
-        #         object_info.extend(['%s%s' % (''.rjust(2*indent_level_increment), line)
-        #                             for line in node.repr_helper(simple=True, indent_level_increment=indent_level_increment)])
-        # except AttributeError:
-        #     pass
-        
         return object_info
 
         
     def get_id(self):
         return self._bus_id
+
+
+    def set_get_apparent_power_injected_from_network_method(self, method):
+        self.get_apparent_power_injected_from_network_method = method
+        self.model.set_get_apparent_power_injected_from_network(self.get_apparent_power_injected_from_network)
+
+
+    def get_apparent_power_injected_from_network(self):
+        return self.get_apparent_power_injected_from_network_method(self)
         
         
     def prepare_for_dynamic_simulation_initial_value_calculation(self):
@@ -80,11 +79,14 @@ class Bus(object):
         self.model.prepare_for_dynamic_simulation()
 
 
-    def initialize_dynamic_states(self, Snetwork):
-        Vpolar = self.get_current_voltage_polar()
-        self.model.initialize_dynamic_states(Vpolar, Snetwork)
+    def initialize_dynamic_states(self):
+        self.model.initialize_dynamic_states()
         
     
+    def prepare_for_dynamic_state_update(self):
+        pass
+
+
     def get_current_dynamic_state_array(self):
         return self.model.get_current_dynamic_state_array()
 
@@ -94,14 +96,8 @@ class Bus(object):
         return self.model.get_dynamic_state_time_derivative_array(Vpolar)
 
 
-    def update_dynamic_states(self, new_state_array):
-        return self.model.update_dynamic_states(new_state_array)
-
-
-    def get_apparent_power_derivatives(self, Vpolar=None):
-        if Vpolar is None:
-            Vpolar = self.get_current_voltage_polar()
-        return self.model.get_apparent_power_derivatives(Vpolar)
+    def get_apparent_power_derivatives(self):
+        return self.model.get_apparent_power_derivatives()
 
 
     def get_current_dynamic_angular_velocity(self):
@@ -115,13 +111,13 @@ class Bus(object):
             return self.model.set_reference_dynamic_angular_velocity(reference_velocity)
 
 
-    def save_bus_voltage_polar_to_model(self):
-        Vpolar = self.get_current_voltage_polar()
-        self.model.save_bus_voltage_polar(Vpolar)
-
-
-    def save_injected_apparent_power_to_model(self, Snetwork):
-        self.model.save_apparent_power_injected_from_network(Snetwork)
+    # def save_bus_voltage_polar_to_model(self):
+    #     Vpolar = self.get_current_voltage_polar()
+    #     self.model.save_bus_voltage_polar(Vpolar)
+    #
+    #
+    # def save_injected_apparent_power_to_model(self, Snetwork):
+    #     self.model.save_apparent_power_injected_from_network(Snetwork)
 
 
     def update_dynamic_states(self, numerical_integration_method):
@@ -310,8 +306,7 @@ class Bus(object):
 
 
     def get_apparent_power_injection(self):
-        Vpolar = self.get_current_voltage_polar()
-        return self.model.get_apparent_power_injection(Vpolar)
+        return self.model.get_apparent_power_injection()
 
 
     def is_voltage_polar_static(self):

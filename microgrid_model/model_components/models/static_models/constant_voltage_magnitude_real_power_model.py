@@ -11,5 +11,5 @@ class ConstantVoltageMagnitudeRealPowerModel(StaticModel):
         StaticModel.__init__(self, voltage_magnitude_static=True, voltage_angle_static=False)
 
 
-    def _get_real_power_injection(self, Vpolar):
+    def _get_real_power_injection(self):
         return self.P[-1]

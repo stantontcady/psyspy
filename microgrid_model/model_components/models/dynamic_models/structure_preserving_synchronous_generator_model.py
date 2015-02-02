@@ -85,8 +85,8 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
         self.make_voltage_magnitude_static()
 
 
-    def _initialize_states(self, Vpolar, Snetwork):
-        d0, w0, P0 = self._get_initial_state_array(Vpolar, Snetwork)
+    def _initialize_states(self):
+        d0, w0, P0 = self.__get_initial_state_array()
         set_initial_conditions(self, 'd', d0)
         set_initial_conditions(self, 'w', w0)
         set_initial_conditions(self, 'P', P0)
@@ -119,11 +119,23 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
         self.reference_angular_velocity = reference_velocity
 
 
-    def _save_bus_voltage_polar(self, Vpolar):
-        self.Vpolar = Vpolar
+    # def _save_bus_voltage_polar(self, Vpolar, k):
+    #     try:
+    #         if self.Vpolar_k < k:
+    #             self.Vpolar = Vpolar
+    #     self.Vpolar = Vpolar
+    #     # last iteration Vpolar was received
+    #     self.vpolar_k = k
 
 
-    def _get_real_power_injection(self, Vpolar, current_states=None):
+    # def _get_bus_voltage_polar(self):
+    #     try:
+    #         return self.Vpolar
+    #     except AttributeError:
+    #         raise AttributeError('bus polar voltage has not been saved to this model')
+
+
+    def _get_real_power_injection(self, current_states=None):
         # voltage magnitude should only be static during initial value computation
         if self.is_voltage_magnitude_static() is True:
             return self._get_current_setpoint_array()[0]
@@ -131,71 +143,65 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
             if current_states is None:
                 d, _, _ = self._get_current_state_array()
             else:
-                d, _, _ = self._parse_state_array(current_states)
+                d, _, _ = self.__parse_state_array(current_states)
 
-            return self._p_out_model(Vpolar, d=d)
+            return self.__p_out_model(d=d)
 
 
-    def _get_reactive_power_injection(self, Vpolar, current_states=None):
+    def _get_reactive_power_injection(self, current_states=None):
         # voltage magnitude should only be static during initial value computation
         if self.is_voltage_magnitude_static() is True:
             return 0
         else:
-            if current_states is None:
-                d, _, _ = self._get_current_state_array()
+            if current_states is not None:
+                d, _, _ = self.__parse_state_array(current_states)
             else:
-                d, _, _ = self._parse_state_array(current_states)
+                d = None
 
-            return self._q_out_model(Vpolar, d=d)
+            return self.__q_out_model(d=d)
 
 
-    def _update_states(self, numerical_integration_method):
-        current_states = self._get_current_state_array()
-        updated_states = numerical_integration_method(current_states, self._get_state_time_derivative_array)
-        self._save_new_state_array(updated_states)
-        return None, None
+    # def _update_states(self, numerical_integration_method):
+    #     current_states = self._get_current_state_array()
+    #     updated_states = numerical_integration_method(current_states, self._get_state_time_derivative_array)
+    #     self._save_new_state_array(updated_states)
 
 
     def _get_state_time_derivative_array(self, current_states=None, current_setpoints=None):
-        try:
-            Vpolar = self.Vpolar
-        except AttributeError:
-            raise ModelError('cannot get time derivative array for model %i, no member variable called Vpolar' % (self._model_id))
-
         if self.reference_angular_velocity is None:
             # if no reference angular velocity we assume this is the reference node
             wref = self.wnom
         else:
             wref = self.reference_angular_velocity
 
-        dd_dt = self._dd_dt_model(Vpolar, current_states=current_states, wref=wref)
-        dw_dt = self._dw_dt_model(Vpolar, current_states=current_states, wref=wref)
-        dP_dt = self._dP_dt_model(Vpolar, current_states=current_states, current_setpoints=current_setpoints, wref=wref)
+        Vpolar = self.get_polar_voltage_from_bus()
+
+        dd_dt = self.__dd_dt_model(Vpolar, current_states=current_states, wref=wref)
+        dw_dt = self.__dw_dt_model(Vpolar, current_states=current_states, wref=wref)
+        dP_dt = self.__dP_dt_model(Vpolar, current_states=current_states, current_setpoints=current_setpoints, wref=wref)
         return array([dd_dt, dw_dt, dP_dt])
 
 
     def _save_new_state_array(self, new_states):
-        d, w, P = self._parse_state_array(new_states)
+        d, w, P = self.__parse_state_array(new_states)
         self.d = append(self.d, d)
         self.w = append(self.w, w)
         self.P = append(self.P, P)
         return self._get_current_state_array()
 
 
-    def _get_initial_state_array(self, Vpolar, Snetwork):
-        try:
-            Pnetwork, Qnetwork = Snetwork
-        except ValueError, TypeError:
-            raise ModelError('could not unpack apparent power from network')
-    
-        d0 = self._d0_model(Vpolar, Pnetwork, Qnetwork)
-        w0 = self._w0_model()
-        P0 = self._P0_model(Pnetwork)
+    def __get_initial_state_array(self):
+        Vpolar = self.get_polar_voltage_from_bus()
+        Pnetwork, Qnetwork = self.get_apparent_power_injected_from_network()
+        
+        d0 = self.__d0_model(Vpolar, Pnetwork, Qnetwork)
+        w0 = self.__w0_model()
+        P0 = self.__P0_model(Pnetwork)
         
         return array([d0, w0, P0])
         
         
-    def _parse_state_array(self, state_array):
+    def __parse_state_array(self, state_array):
         if state_array.ndim != 1 and len(state_array) != 3:
             raise ModelError('state array is the wrong dimension or size')
         
@@ -229,7 +235,7 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
         return array([d, w, P])
 
 
-    def _parse_setpoint_array(self, setpoint_array):
+    def __parse_setpoint_array(self, setpoint_array):
         if setpoint_array.ndim != 1 and len(setpoint_array) != 1:
             raise ModelError('setpoint array is the wrong dimension or size')
         
@@ -251,80 +257,88 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
         return array([u])
 
 
-    def _dd_dt_model(self, Vpolar, wref, current_states=None):
+    def __dd_dt_model(self, Vpolar, wref, current_states=None):
         if current_states is None:
             _, w, _ = self._get_current_state_array()
         else:
-            _, w, _ = self._parse_state_array(current_states)
+            _, w, _ = self.__parse_state_array(current_states)
 
         return w - wref
 
         
-    def _d0_model(self, Vpolar, Pnetwork, Qnetwork):
-        E, d = self._back_emf_initial_value(Vpolar, Pnetwork, Qnetwork)
+    def __d0_model(self, Vpolar, Pnetwork, Qnetwork):
+        E, d = self.__back_emf_initial_value(Vpolar, Pnetwork, Qnetwork)
         # save back emf voltage magnitude here since it doesn't have a dynamic model in this generator model
         set_initial_conditions(self, 'E', E)
         return d
 
 
-    def _dw_dt_model(self, Vpolar, wref, current_states=None):
+    def __dw_dt_model(self, Vpolar, wref, current_states=None):
         if current_states is None:
             d, w, P = self._get_current_state_array()
         else:
-            d, w, P = self._parse_state_array(current_states)
+            d, w, P = self.__parse_state_array(current_states)
 
-        Pout = self._p_out_model(Vpolar, d=d)
+        Pout = self.__p_out_model(Vpolar=Vpolar, d=d)
 
         return (1./self.M)*(P - Pout - self.D*(w - wref))
         
 
-    def _w0_model(self):
+    def __w0_model(self):
         return self.wnom
 
         
-    def _dP_dt_model(self, Vpolar, wref, current_states=None, current_setpoints=None):
+    def __dP_dt_model(self, Vpolar, wref, current_states=None, current_setpoints=None):
         if current_states is None:
             _, w, P = self._get_current_state_array()
         else:
-            _, w, P = self._parse_state_array(current_states)
+            _, w, P = self.__parse_state_array(current_states)
 
         if current_setpoints is None:
             u = self._get_current_setpoint_array()[0]
         else:
-            u = self._parse_state_array(current_setpoints)
+            u = self.__parse_setpoint_array(current_setpoints)
 
         return (1./self.taug)*(u - P - (1./(self.Rd*wref))*(w - wref))
 
 
-    def _P0_model(self, Pnetwork):
+    def __P0_model(self, Pnetwork):
         return Pnetwork
 
         
-    def _p_out_model(self, Vpolar, d=None):
+    def __p_out_model(self, Vpolar=None, d=None):
         if d is None:
             d, _, _ = self._get_current_state_array()
+
+        if Vpolar is None:
+            Vpolar = self.get_polar_voltage_from_bus()
         V, theta = Vpolar
+
         return (1./self.Xdp)*self.E[-1]*V*sin(d - theta)
         
         
-    def _q_out_model(self, Vpolar, d=None):
+    def __q_out_model(self, Vpolar=None, d=None):
         if d is None:
             d, _, _ = self._get_current_state_array()
+            
+        if Vpolar is None:
+            Vpolar = self.get_polar_voltage_from_bus()
         V, theta = Vpolar
+
         return (1./self.Xdp)*(self.E[-1]*V*cos(theta - d) - V**2)
 
 
-    def _dP_dtheta_model(self, Vpolar, d=None):
+    def _dP_dtheta_model(self, d=None):
         if d is None:
             d, _, _ = self._get_current_state_array()
-        V, theta = Vpolar
+        V, theta = self.get_polar_voltage_from_bus()
         return -1*(1./self.Xdp)*V*self.E[-1]*cos(d - theta)
 
 
-    def _dP_dV_model(self, Vpolar, d=None):
+    def _dP_dV_model(self, d=None):
         if d is None:
             d, _, _ = self._get_current_state_array()
-        _, theta = Vpolar
+        _, theta = self.get_polar_voltage_from_bus()
         return (1./self.Xdp)*self.E[-1]*sin(d - theta)
         
     
@@ -334,17 +348,17 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
     #     return (1./self.Xdp)*V*self.E[-1]*cos(d - theta)
 
 
-    def _dQ_dtheta_model(self, Vpolar, d=None):
+    def _dQ_dtheta_model(self, d=None):
         if d is None:
             d, _, _ = self._get_current_state_array()
-        V, theta = Vpolar
+        V, theta = self.get_polar_voltage_from_bus()
         return -1*(1./self.Xdp)*V*self.E[-1]*sin(theta - d)
         
         
-    def _dQ_dV_model(self, Vpolar, d=None):
+    def _dQ_dV_model(self, d=None):
         if d is None:
             d, _, _ = self._get_current_state_array()
-        V, theta = Vpolar
+        V, theta = self.get_polar_voltage_from_bus()
         return (1./self.Xdp)*self.E[-1]*cos(theta - d) - 2*V/self.Xdp
 
         
@@ -354,7 +368,7 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
     #     return (1./self.Xdp)*V*self.E[-1]*sin(theta - d)
 
         
-    def _back_emf_initial_value(self, Vpolar, Pg, Qg):
+    def __back_emf_initial_value(self, Vpolar, Pg, Qg):
         # DOES NOT INCLUDE GEN LOSSES
         # these are needed numerous times, compute once first
         V, theta = Vpolar

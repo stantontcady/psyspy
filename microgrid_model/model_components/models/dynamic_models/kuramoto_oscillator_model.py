@@ -80,7 +80,7 @@ class KuramotoOscillatorModel(DynamicModel):
         return d
 
 
-    def _get_real_power_injection(self, Vpolar, current_states=None):
+    def _get_real_power_injection(self, current_states=None):
         u = self._get_current_setpoint_array()[0]
         try:
             Pnetwork, _ = self.Snetwork
@@ -98,14 +98,16 @@ class KuramotoOscillatorModel(DynamicModel):
         return 0
         
     
-    def _save_apparent_power_injected_from_network(self, Snetwork):
-        self.Snetwork = Snetwork
+    # def _save_apparent_power_injected_from_network(self, Snetwork, k):
+    #     self.Snetwork = Snetwork
+    #     # last iteration Snetwork was received
+    #     self.snetwork_k = k
 
 
-    def _update_states(self, numerical_integration_method):
-        current_states = self._get_current_state_array()
-        updated_states = numerical_integration_method(current_states, self._get_state_time_derivative_array)
-        self._save_new_state_array(updated_states)
+    # def _update_states(self, numerical_integration_method):
+    #     current_states = self._get_current_state_array()
+    #     updated_states = numerical_integration_method(current_states, self._get_state_time_derivative_array)
+    #     self._save_new_state_array(updated_states)
 
 
     def _get_state_time_derivative_array(self, current_states=None, current_setpoints=None):

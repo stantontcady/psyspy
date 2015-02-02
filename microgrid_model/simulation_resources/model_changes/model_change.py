@@ -6,7 +6,7 @@ from itertools import count
 class ModelChange(object):
     _model_change_ids = count(0)
     
-    def __init__(self, affected_model, start_time, end_time):
+    def __init__(self, start_time, affected_model, end_time=None):
         
         self._model_change_id = self._model_change_ids.next() + 1
         
@@ -26,7 +26,7 @@ class ModelChange(object):
 
 
     def get_change_id(self):
-        return self._system_change_id
+        return self._model_change_id
 
 
 # may be removed in the future
@@ -40,6 +40,14 @@ class ModelChange(object):
             self.active = True
         except AttributeError:
             debug('Could not activate model change %i, no method for activating it' % self._model_change_id)
+
+
+    def deactivate(self):
+        try:
+            self._deactivate_model_change()
+            self.active = False
+        except AttributeError:
+            debug('Could not deactivate model change %i, no method for deactivating it' % self._model_change_id)
 
 
     def toggle_change(self):

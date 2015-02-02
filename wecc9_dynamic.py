@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from logging import getLogger
 from math import pi
 
 from IPython import embed
@@ -8,7 +9,11 @@ from numpy import amax, amin
 
 from microgrid_model import Bus, PowerNetwork, ConstantApparentPowerModel
 from microgrid_model.model_components.models import ConstantApparentPowerModel, StructurePreservingSynchronousGeneratorModel
-from microgrid_model.simulation_resources import SimulationRoutine, TemporaryConstantPowerLoadChange, PermanentConstantPowerLoadChange, TemporaryPowerLineImpedanceChange
+from microgrid_model.simulation_resources import SimulationRoutine
+from microgrid_model.simulation_resources.model_changes import ConstantApparentPowerModelApparentPowerInjectionChange as ConstantPowerLoadChange
+
+logger = getLogger()
+# logger.setLevel(10)
 
 l1 = ConstantApparentPowerModel(P=1.25, Q=0.5)
 l2 = ConstantApparentPowerModel(P=0.9, Q=0.3)
@@ -51,45 +56,45 @@ line3 = n.connect_buses(b3, b9, z=(0, 0.0586))
 line9 = n.connect_buses(b8, b9, z=(0.0119, 0.1008))
 line2 = n.connect_buses(b2, b7, z=(0, 0.0625))
 
-
 n.set_slack_bus(b1)
 
+c1 = ConstantPowerLoadChange(start_time=0.5, affected_model=l2, new_P=2, end_time=1.0)
 
-# c1 = TemporaryConstantPowerLoadChange(start_time=0.5, end_time=2, affected_load=b5, new_P=1.5)
-# c2 = PermanentConstantPowerLoadChange(start_time=0.5, affected_load=lb, new_P=1)
-c2 = TemporaryPowerLineImpedanceChange(affected_line=line4, start_time=1, end_time=1.1, new_z=(0.015, 0.085))
-# c2 = TemporaryConstantPowerLoadChange(start_time=2, end_time=10, affected_node=la, new_Q=0.85)
-# c2 = TemporaryConstantPowerLoadChange(start_time=1.5, end_time=10.1, affected_node=lb, new_P=1.25)
-
-
-sim = SimulationRoutine(n, 10, [c2])
+sim = SimulationRoutine(n, 5, model_changes=[c1])
 sim.run_simulation()
 t = sim.time_vector
 
 
-figure(1)
-for bus in n.buses:
-    plot(t, bus.theta)
-    
-show()
-
-# w1 = g1.w[0:(g1.w.shape[0]-1)]
-# w2 = g2.w[0:(g2.w.shape[0]-1)]
-# w3 = g3.w[0:(g3.w.shape[0]-1)]
-# 
 # figure(1)
-# plot(t, w1, t, w2, t, w3)
-# ymin = min(amin(w1), amin(w2), amin(w2)) - 0.1
-# ymax = max(amax(w1), amax(w2), amax(w2)) + 0.1
-# ylim(ymin, ymax)
-# print abs(2*pi*60-w1[-1])
-# print abs(2*pi*60-w2[-1])
-# print abs(2*pi*60-w3[-1])
-# ylim(ymin, ymax)
+# for bus in n.buses:
+#     plot(t, bus.theta)
+#
 # figure(2)
-# plot(t, w2)
-# ylim(ymin, ymax)
-# figure(3)
-# plot(t, w3)
-# ylim(ymin, ymax)
+# for bus in n.buses:
+#     try:
+#         plot(t, bus.model.d[0:(bus.model.d.shape[0]-1)])
+#     except AttributeError:
+#         pass
+#
 # show()
+
+w1 = g1.w[0:(g1.w.shape[0]-1)]
+w2 = g2.w[0:(g2.w.shape[0]-1)]
+w3 = g3.w[0:(g3.w.shape[0]-1)]
+
+figure(1)
+plot(t, w1, t, w2, t, w3)
+ymin = min(amin(w1), amin(w2), amin(w2)) - 0.1
+ymax = max(amax(w1), amax(w2), amax(w2)) + 0.1
+ylim(ymin, ymax)
+print abs(2*pi*60-w1[-1])
+print abs(2*pi*60-w2[-1])
+print abs(2*pi*60-w3[-1])
+ylim(ymin, ymax)
+figure(2)
+plot(t, w2)
+ylim(ymin, ymax)
+figure(3)
+plot(t, w3)
+ylim(ymin, ymax)
+show()
