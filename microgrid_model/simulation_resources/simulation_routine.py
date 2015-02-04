@@ -4,13 +4,20 @@ from math import ceil
 from numpy import empty
 
 from numerical_methods import RungeKutta45, ForwardEuler
+from perturbations import Perturbation
 
 from IPython import embed
 
 
 class SimulationRoutine(object):
     
-    def __init__(self, power_network, simulation_time, model_changes=None, time_step=0.001, power_flow_tolerance=0.0001):
+    def __init__(self,
+                 power_network,
+                 simulation_time,
+                 controller=None,
+                 perturbations=None,
+                 time_step=0.001,
+                 power_flow_tolerance=0.0001):
         
         self.network = power_network
 
@@ -23,52 +30,58 @@ class SimulationRoutine(object):
         self.numerical_method = RungeKutta45(time_step)
         # self.numerical_method = ForwardEuler(time_step)
         
-        self.model_changes = [] 
-        if model_changes is not None:
-            if type(model_changes) is not list:
-                model_changes = [model_changes]
+        self.perturbations = [] 
+        if perturbations is not None:
+            if type(perturbations) is not list:
+                perturbations = [perturbations]
 
-            for model_change in model_changes:
-                if model_change.end_time is not None:
-                    if model_change.end_time >= simulation_time or model_change.end_time is None:
-                        debug('Model change %i does not revert to normal conditions before end of simulation' % (model_change.get_change_id()))
+            for perturbation in perturbations:
+                if isinstance(perturbation, Perturbation) is False:
+                    raise TypeError('perturbations must be an instance of the Perturbation type or a subclass thereof')
+                if perturbation.end_time is not None:
+                    if perturbation.end_time >= simulation_time or perturbation.end_time is None:
+                        debug('Perturbation %i does not revert to normal conditions before end of simulation' % (perturbation.get_id()))
                         continue
-                self.add_model_change(model_change)
+                if perturbation.enabled is True:
+                    self.add_perturbation(perturbation)
 
-    def add_model_change(self, model_change):
-        if model_change.start_time > (self.simulation_time - self.time_step):
-            warning('Cannot add model change %i, the start time is after end of simulation or in last time step.' % (model_change.get_change_id()))
+
+    def add_perturbation(self, perturbation):
+        if perturbation.start_time > (self.simulation_time - self.time_step):
+            warning('Cannot add perturbation %i, the start time is after end of simulation or in last time step.' % (perturbation.get_id()))
             return False
         
-        start_time_time_step_ratio = float(model_change.start_time)/float(self.time_step)
+        start_time_time_step_ratio = float(perturbation.start_time)/float(self.time_step)
 
         if int(start_time_time_step_ratio) - start_time_time_step_ratio != 0.0:
-            debug('Model change %i does not occur at a time instant included in the simulation, it will be activated immediately after the nearest time step, i.e., %f seconds late.' % (system_change.get_change_id(), ceil(start_time_time_step_ratio)*self.time_step - model_change.start_time))
-        self.model_changes.append(model_change)
+            debug('Perturbation %i does not occur at a time instant included in the simulation, it will be activated immediately after the nearest time step, i.e., %f seconds late.' % (system_change.get_change_id(), ceil(start_time_time_step_ratio)*self.time_step - model_change.start_time))
+        self.perturbations.append(perturbation)
         return True
 
 
-    def check_model_change_active(self, model_change):
+    def check_perturbation_active(self, perturbation):
         admittance_matrix_recompute_required = False
         
-        if ((self.current_time >= model_change.start_time) and 
-           ((self.current_time <= model_change.end_time) or model_change.end_time is None)):
-            if model_change.active is False:
-                model_change.activate()
-                admittance_matrix_recompute_required = model_change.admittance_matrix_recompute_required()
-        else:
-            if model_change.active is True:
-                model_change.deactivate()
-                admittance_matrix_recompute_required = model_change.admittance_matrix_recompute_required()
+        t = self.current_time
+        dt = self.time_step
+        
+        if t >= perturbation.start_time and t < (perturbation.start_time + dt):
+            if perturbation.active is False:
+                perturbation.activate()
+                admittance_matrix_recompute_required = perturbation.admittance_matrix_recompute_required()
+        elif perturbation.end_time is not None and t >= perturbation.end_time and t < (perturbation.end_time + dt):
+            if perturbation.active is True:
+                perturbation.deactivate()
+                admittance_matrix_recompute_required = perturbation.admittance_matrix_recompute_required()
 
         return admittance_matrix_recompute_required
             
     
-    def check_all_model_changes_active(self):
+    def check_all_perturbations_active(self):
         admittance_matrix_recompute_required = False
         
-        for model_change in self.model_changes:
-            if self.check_model_change_active(model_change) is True:
+        for perturbation in self.perturbations:
+            if self.check_perturbation_active(perturbation) is True:
                 admittance_matrix_recompute_required = True
         
         return admittance_matrix_recompute_required
@@ -78,41 +91,21 @@ class SimulationRoutine(object):
         self.current_time = 0
         n = self.network
         
+        n.prepare_for_dynamic_simulation_initial_value_calculation()
+        
         _ = n.compute_initial_values_for_dynamic_simulation()
         
         n.initialize_dynamic_model_states()
         n.prepare_for_dynamic_simulation()
 
-        reference_bus = n.get_voltage_angle_reference_bus()
-        
-
         for k in range(0, self.num_simulation_steps):
             self.time_vector[k] = self.current_time
-            admittance_matrix_recompute_required = self.check_all_model_changes_active()
-            force_static_var_recompute = False
-
-            if admittance_matrix_recompute_required is True:
-            #     # this function forces a recomputation of the admittance matrix which may be necessary to account for change
-                _, _ = n.save_admittance_matrix()
-                force_static_var_recompute = True
-            self.current_time += self.time_step
+            admittance_matrix_recompute_required = self.check_all_perturbations_active()
             
             n.prepare_for_dynamic_state_update()
 
-            # reference_velocity = reference_bus.get_current_dynamic_angular_velocity()
-
             n.update_dynamic_states(numerical_integration_method=self.numerical_method.get_updated_states)
             
-            # for bus in n.get_buses_with_dynamic_models():
-            #     if n.is_voltage_angle_reference_bus(bus) is not True:
-            #         bus.set_reference_dynamic_angular_velocity(reference_velocity)
-            #
-            #     bus.update_dynamic_states(numerical_integration_method=self.numerical_method.get_updated_states)
+            n.update_algebraic_states(admittance_matrix_recompute_required=admittance_matrix_recompute_required)
 
-            # solve power flow without slack bus, make sure to leave append=True (this is the default option), tolerance=self.power_flow_tolerance
-            if k == 0:
-                append = False
-            else:
-                append = True
-
-            # _ = n.solve_power_flow(force_static_var_recompute=force_static_var_recompute, append=append)
+            self.current_time += self.time_step

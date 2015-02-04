@@ -512,7 +512,7 @@ class PowerNetwork(object):
             
             if voltage_magnitude_is_static is False:
                 function_vector = append(function_vector, fq)
-
+        # print function_vector
         return function_vector
 
 
@@ -704,11 +704,14 @@ class PowerNetwork(object):
             self.buses_with_dynamic_models = [self.get_bus_by_id(bus_id) for bus_id in bus_ids_with_dynamic_models]
             
         return self.buses_with_dynamic_models
-        
 
-    def compute_initial_values_for_dynamic_simulation(self):
+
+    def prepare_for_dynamic_simulation_initial_value_calculation(self):
         [bus.prepare_for_dynamic_simulation_initial_value_calculation() for bus in self.get_buses_with_dynamic_models()]
         self.select_slack_bus()
+
+
+    def compute_initial_values_for_dynamic_simulation(self):
         return self.solve_power_flow(append=False, force_static_var_recompute=True)
 
 
@@ -741,6 +744,7 @@ class PowerNetwork(object):
 
     
     def prepare_for_dynamic_state_update(self):
+        # TO DO: handle reference speed for structure preserving model
         for bus in self.get_buses_with_dynamic_models():
             bus.prepare_for_dynamic_state_update()
 
@@ -796,3 +800,9 @@ class PowerNetwork(object):
         for bus_id, num_states in self.dynamic_state_bus_index_mapping:
             updated_states_i = self._parse_current_dynamic_state_array(updated_states, bus_id, num_states)
             self.get_bus_by_id(bus_id).save_new_dynamic_state_array(updated_states_i)
+
+
+    def update_algebraic_states(self, admittance_matrix_recompute_required=False):
+        if admittance_matrix_recompute_required is True:
+            _, _ = self.save_admittance_matrix()
+        # _ = n.solve_power_flow(force_static_var_recompute=force_static_var_recompute, append=append)

@@ -1,7 +1,7 @@
 from numpy import append
 
-from ...helper_functions import set_initial_conditions
-from .static_model import StaticModel
+from microgrid_model import set_initial_conditions
+from static_model import StaticModel
 
 
 class ConstantApparentPowerModel(StaticModel):

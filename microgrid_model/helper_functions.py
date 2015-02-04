@@ -1,9 +1,11 @@
+from logging import debug
+
 from numpy import empty
 
 
 def set_initial_conditions(obj, state, initial_value=None):
     """
-    Helper function set initial conditions for buses, and models.
+    Helper function set initial conditions for any object.
     """
     if initial_value is None:
         initial_value = 0
@@ -21,6 +23,17 @@ def set_parameter_value(obj, parameter, value):
     setattr(obj, '%s' % parameter, value)
 
 
+def check_method_exists_and_callable(obj, method_name):
+    if hasattr(obj, method_name) is True:
+        method = getattr(obj, method_name)
+        if hasattr(method, '__call__') is True:
+            return method
+        else:
+            return False
+    else:
+        return None
+
+
 def impedance_admittance_wrangler(z=(), y=()):
     if len(z) == 2:
         r = z[0]
@@ -30,21 +43,21 @@ def impedance_admittance_wrangler(z=(), y=()):
     
     if len(z) == 2 and len(y) == 2:
         if round(computed_y[0], 5) != round(y[0], 5):
-            print 'Resistance and conductance provided without different values, using conductance.'    
+            debug('Resistance and conductance provided without different values, using conductance.')
         
         if round(computed_y[1], 5) != round(y[1], 5):
-            print 'Reactance and susceptance provided without different values, using susceptance.'
+            debug('Reactance and susceptance provided without different values, using susceptance.')
         
         # note that we use admittance in all cases, and only tell the user if they differ sufficiently
         return y
 
     elif len(z) == 2 and len(y) != 2:
         if len(y) != 0:
-            print 'Admittance provided does not have two elements, using impedance.'
+            debug('Admittance provided does not have two elements, using impedance.')
         return computed_y
     elif len(y) == 2:
         return y
 
     if len(z) != 0 and len(y) != 0:
-        print 'Could not save admittance of line, defaulting to zero.'
+        debug('Could not get admittance, defaulting to zero.')
     return (0, 0)

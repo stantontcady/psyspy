@@ -4,7 +4,7 @@ from itertools import count
 from numpy import append, nan
 
 from microgrid_model.exceptions import BusError, ModelError
-from ..helper_functions import impedance_admittance_wrangler, set_initial_conditions
+from microgrid_model import impedance_admittance_wrangler, set_initial_conditions
 from ..models import Model
 
 class Bus(object):
@@ -127,10 +127,6 @@ class Bus(object):
             pass
         else:
             return self.model.set_reference_dynamic_angular_velocity(reference_velocity)
-
-
-    # def update_dynamic_states(self, numerical_integration_method):
-    #     self.model.update_dynamic_states(numerical_integration_method)
 
 
     def save_new_dynamic_state_array(self, new_state_array):
@@ -376,35 +372,3 @@ class Bus(object):
             return self.model.is_voltage_angle_static()
         except AttributeError, ModelError:
             return False
-
-
-    # def get_jacobian_block(self, Yij, Vpolar_i=None, Vpolar_i_static=None, Vpolar_j=None, Vpolar_j_static=None):
-    #     pass
-        # # admittance is stored as a tuple: conductance, susceptance
-        # Gij, Bij = Yij
-        # # bus i (and its associated properties) is this bus, bus j is connected bus for which this block is being computed
-        # # The properties for bus i are optional to allow for parallelization of Jacobian computation
-        # if Vpolar_i is None:
-        #     Vpolar_i = self.get_current_voltage()
-        #
-        # if Vpolar_i_static is None:
-        #     Vpolar_i_static = self.voltage_is_static()
-        # # stored as a tuple where the elements indicate if the magnitude and angle are static, respectively
-        # Vi_static, thetai_static = Vpolar_i_static
-        #
-        # # if either of the properties for bus j are omitted, it's assumed that j = i, i.e., the self block is being computed
-        # if Vpolar_j is None or Vpolar_j_static is None:
-        #     self_block = True
-        #     Vpolar_j = Vpolar_i
-        #     Vj_static = Vi_static
-        #     thetaj_static = thetai_static
-        # else:
-        #     self_block = False
-        #
-        # # this block can be of size 1x1, 2x1, 1x2, or 2x2; default to 1x1
-        # num_rows = 1
-        # num_cols = 1
-        #
-        # if self_block is False:
-        #     H = jacobian_hij_helper(Vpolar_i, Vpolar_j, Gij, Bij)
-                    

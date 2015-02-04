@@ -94,21 +94,9 @@ class DynamicModel(Model):
         except AttributeError:
             raise AttributeError('dynamic model %i does not have a member function for saving new state array' % (self._model_id))
 
-    # def update_states(self, numerical_integration_method):
-    #     try:
-    #         current_states = self._get_current_state_array()
-    #     except AttributeError:
-    #         raise AttributeError('dynamic model %i does not have a member function for getting current states' % (self._model_id))
-    #
-    #     try:
-    #         get_time_derivative_method = self._get_state_time_derivative_array
-    #     except AttributeError:
-    #         raise AttributeError('dynamic model %i does not have a member function for getting state time derivative array' % (self._model_id))
-    #
-    #     try:
-    #         save_new_states_method = self._save_new_state_array
-    #     except AttributeError:
-    #         raise AttributeError('dynamic model %i does not have a member function for saving new state array' % (self._model_id))
-    #
-    #     updated_states = numerical_integration_method(current_states, get_time_derivative_method)
-    #     save_new_states_method(updated_states)
+
+    def get_damping_coefficient(self):
+        try:
+            return self._get_damping_coefficient()
+        except:
+            raise AttributeError('dynamic model %i does not have a member function for getting the damping coefficient' % (self._model_id))

@@ -7,44 +7,41 @@ from matplotlib.pylab import plot, figure, show, ylim
 from numpy import amax, amin
 
 
-from microgrid_model import Bus, PowerNetwork, ConstantApparentPowerModel
-from microgrid_model.model_components.models import KuramotoOscillatorModel as Kuramoto
-from microgrid_model.simulation_resources import SimulationRoutine, KuramotoOscillatorModelNaturalFrequencyChange as KuramotoSetPointChange
+from microgrid_model import Bus, PowerNetwork, ConstantApparentPowerModel, KuramotoOscillatorLoadModel as KuramotoLoad
+from microgrid_model import KuramotoOscillatorGeneratorModel as KuramotoGenerator
+from microgrid_model import SimulationRoutine, KuramotoOscillatorModelNaturalFrequencyPerturbation as KuramotoLoadPerturbation
 
 logger = getLogger()
-# logger.setLevel(10)
+logger.setLevel(10)
 
-g1 = Kuramoto(
+g1 = KuramotoGenerator(
     parameters={'D': 0.125},
     initial_setpoint=0.67
 )
 
-g2 = Kuramoto(
+g2 = KuramotoGenerator(
     parameters={'D': 0.0679},
     initial_setpoint=1.63
 )
 
-g3 = Kuramoto(
+g3 = KuramotoGenerator(
     parameters={'D': 0.0479},
     initial_setpoint=0.85
 )
 
-l1 = Kuramoto(
+l1 = KuramotoLoad(
     parameters={'D': 0.0125},
-    initial_setpoint=-1.0,
-    is_generator=False
+    initial_load=1.0
 )
 
-l2 = Kuramoto(
+l2 = KuramotoLoad(
     parameters={'D': 0.00679},
-    initial_setpoint=-1.25,
-    is_generator=False
+    initial_load=1.25
 )
 
-l3 = Kuramoto(
+l3 = KuramotoLoad(
     parameters={'D': 0.00479},
-    initial_setpoint=-0.9,
-    is_generator=False
+    initial_load=0.9
 )
 
 b1 = Bus(model=g1, V0=1, shunt_y=(0, 0.088 + 0.079))
@@ -64,14 +61,10 @@ line5 = n.connect_buses(b3, b6, z=(0, 0.2286))
 line6 = n.connect_buses(b3, b4, z=(0, 0.1594))
 
 n.set_slack_bus(b1)
-c1 = KuramotoSetPointChange(affected_model=l3, new_natural_frequency=-1.1, start_time=0.1)
-# c1 = TemporaryConstantPowerLoadChange(start_time=0.5, end_time=2, affected_load=b5, new_P=1.5)
-# c2 = PermanentConstantPowerLoadChange(start_time=0.5, affected_load=lb, new_P=1)
-# c2 = TemporaryPowerLineImpedanceChange(affected_line=line4, start_time=1, end_time=1.05, new_z=(0.0, 0.269))
-# c2 = TemporaryConstantPowerLoadChange(start_time=2, end_time=10, affected_node=la, new_Q=0.85)
-# c2 = TemporaryConstantPowerLoadChange(start_time=1.5, end_time=10.1, affected_node=lb, new_P=1.25)
+p1 = KuramotoLoadPerturbation(affected_model=l3, new_natural_frequency=-1.1, start_time=0.1, end_time=0.2)
+p2 = KuramotoLoadPerturbation(affected_model=l2, new_natural_frequency=-1, start_time=0.5, end_time=0.6)
 
-sim = SimulationRoutine(n, 1, [c1])
+sim = SimulationRoutine(n, 1, perturbations=[p1, p2], time_step=0.001)
 sim.run_simulation()
 t = sim.time_vector
 
@@ -79,12 +72,12 @@ figure(1)
 for bus in n.buses:
     plot(t, bus.model.d[0:(bus.model.d.shape[0]-1)])
 
-figure(2)
-for bus in n.buses:
-    plot(t, bus.theta[0:(bus.theta.shape[0]-1)])
+# figure(2)
+# for bus in n.buses:
+#     plot(t, bus.theta[0:(bus.theta.shape[0]-1)])
 
-embed()
-# show()
+# embed()
+show()
 
 # w1 = g1.w[0:(g1.w.shape[0]-1)]
 # w2 = g2.w[0:(g2.w.shape[0]-1)]

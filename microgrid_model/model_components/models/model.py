@@ -170,21 +170,12 @@ class Model(object):
         method = self._get_dynamic_model_method('prepare_for_initial_value_calculation')
         if method is None:
             debug('Model %i is not dynamic, cannot prepare for dynamic simulation initial value calculation' % (self._model_id))
-            pass
         elif method is False:
             debug('Model %i does not expose a method for preparing for initial value calculation' % (self._model_id))
-            pass
         else:
             method()
-                                       
-        # if self.is_dynamic is False:
-        #     debug('Model %i is not dynamic, cannot prepare for dynamic simulation initial value calculation' % (self._model_id))
-        #     pass
-        # else:
-        #     try:
-        #         self.prepare_for_initial_value_calculation()
-        #     except ModelError:
-        #         raise ModelError('model %i does not expose a method for preparing for initial value calculation' % (self._model_id))
+        
+        pass
 
 
     def initialize_dynamic_states(self):
@@ -288,17 +279,6 @@ class Model(object):
             return method(current_states=current_states)
 
 
-    # def update_dynamic_states(self, numerical_integration_method):
-    #     if self.is_dynamic is False:
-    #         debug('Model %i is not dynamic, cannot update dynamic states' % (self._model_id))
-    #         pass
-    #     else:
-    #         try:
-    #             self.update_states(numerical_integration_method)
-    #         except ModelError:
-    #             raise ModelError('model %i does not expose a method for updating the dynamic states' % (self._model_id))
-
-
     def save_new_dynamic_state_array(self, new_state_array):
         if self.is_dynamic is False:
             debug('Model %i is not dynamic, cannot save new dynamic state array' % (self._model_id))
@@ -308,6 +288,17 @@ class Model(object):
                 self.save_new_state_array(new_state_array)
             except ModelError:
                 raise ModelError('model %i does not expose a method for saving new state array' % (self._model_id))
+
+
+    def get_dynamic_damping_coefficient(self):
+        method = self._get_dynamic_model_method('get_damping_coefficient')
+        if method is None:
+            debug('Model %i is not dynamic, cannot get dynamic damping coefficient' % (self._model_id))
+        elif method is False:
+            debug('model %i does not expose a method for getting dynamic damping coefficient' % (self._model_id))
+        else:
+            return method()
+        return None
 
 
     def is_voltage_polar_static(self):

@@ -7,7 +7,7 @@ from numpy import append, array, empty, nan, nditer, zeros, hstack
 
 from dynamic_model import DynamicModel
 from microgrid_model.exceptions import ModelError
-from microgrid_model.model_components.helper_functions import set_initial_conditions, set_parameter_value
+from microgrid_model import set_initial_conditions, set_parameter_value
 
 
 class KuramotoOscillatorModel(DynamicModel):
@@ -74,7 +74,7 @@ class KuramotoOscillatorModel(DynamicModel):
         self.connected_bus_angles = connected_bus_angles
         
         admittances = self.get_connected_bus_admittance_from_network()
-        # conductances = [y[0] for y in admittances]
+        # self.conductances = [y[0] for y in admittances]
         self.susceptances = [y[1] for y in admittances]
 
 
@@ -177,9 +177,6 @@ class KuramotoOscillatorModel(DynamicModel):
             current_states = self._get_current_state_array()
 
         theta_i = current_states[0]
-        # admittances = self.get_connected_bus_admittance_from_network()
-        # # conductances = [y[0] for y in admittances]
-        # susceptances = [y[1] for y in admittances]
 
         network_flow = 0
         for theta_j, Bij in nditer([current_states[1:], self.susceptances]):
