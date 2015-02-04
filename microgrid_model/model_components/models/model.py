@@ -43,6 +43,17 @@ class Model(object):
                 return '<Model %i>' % self._model_id
 
 
+    def set_update_bus_polar_voltage_method(self, method):
+        self._update_bus_polar_voltage_method = method
+
+
+    def update_bus_polar_voltage(self, Vpolar, replace=False):
+        update_method = self._get_method_from_parent_object('_update_bus_polar_voltage_method',
+                                                            'method for updating polar bus voltage has not been set',
+                                                            'method for updating polar bus voltage is not callable')
+        update_method(Vpolar, replace=replace)
+
+
     def set_get_bus_polar_voltage_method(self, method):
         self._get_bus_polar_voltage_method = method
 
@@ -63,16 +74,52 @@ class Model(object):
                                                     'method for getting apparent power from network is not callable')
 
 
+    def set_get_connected_bus_admittance_from_network_method(self, method):
+        self._get_connected_bus_admittance_from_network_method = method
+
+
+    def get_connected_bus_admittance_from_network(self):
+        return self._call_method_from_parent_object('_get_connected_bus_admittance_from_network_method',
+                                                    'method for getting connected bus admittance from network has not been set',
+                                                    'method for getting connected bus admittance from network is not callable')
+
+
+    def set_get_connected_bus_polar_voltage_from_network_method(self, method):
+        self._get_connected_bus_polar_voltage_from_network_method = method
+
+
+    def get_connected_bus_polar_voltage_from_network(self):
+        return self._call_method_from_parent_object('_get_connected_bus_polar_voltage_from_network_method',
+                                                    'method for getting polar voltage of connected buses from network has not been set',
+                                                    'method for getting polar voltage of connected buses from network is not callable')
+
+
     def _call_method_from_parent_object(self, method, attribute_error_message, callable_error_message):
-        if hasattr(self, method) is True:
-            method = getattr(self, method)
+        parent_method = self._get_method_from_parent_object(method, attribute_error_message, callable_error_message)
+        return parent_method()
+
+
+    def _get_method_from_parent_object(self, method_name, attribute_error_message, callable_error_message):
+        if hasattr(self, method_name) is True:
+            method = getattr(self, method_name)
         else:
             raise AttributeError(attribute_error_message)
 
         if hasattr(method, '__call__') is True:
-            return method()
+            return method
         else:
             raise TypeError(callable_error_message)
+
+
+    def _get_dynamic_model_method(self, method_name):
+        if self.is_dynamic is False:
+            return None
+        elif hasattr(self, method_name):
+            method = getattr(self, method_name)
+            if hasattr(method, '__call__'):
+                return method
+
+        raise False
 
 
     def get_apparent_power_injection(self):
@@ -87,7 +134,7 @@ class Model(object):
         except AttributeError:
             debug('Could not get real power for model %i, defaulting to Q=0' % (self._model_id))
             Q = 0
-            
+
         return P, Q
 
         
@@ -120,36 +167,46 @@ class Model(object):
 
 
     def prepare_for_dynamic_simulation_initial_value_calculation(self):
-        if self.is_dynamic is False:
+        method = self._get_dynamic_model_method('prepare_for_initial_value_calculation')
+        if method is None:
             debug('Model %i is not dynamic, cannot prepare for dynamic simulation initial value calculation' % (self._model_id))
             pass
+        elif method is False:
+            debug('Model %i does not expose a method for preparing for initial value calculation' % (self._model_id))
+            pass
         else:
-            try:
-                self.prepare_for_initial_value_calculation()
-            except ModelError:
-                raise ModelError('model %i does not expose a method for preparing for initial value calculation' % (self._model_id))
+            method()
+                                       
+        # if self.is_dynamic is False:
+        #     debug('Model %i is not dynamic, cannot prepare for dynamic simulation initial value calculation' % (self._model_id))
+        #     pass
+        # else:
+        #     try:
+        #         self.prepare_for_initial_value_calculation()
+        #     except ModelError:
+        #         raise ModelError('model %i does not expose a method for preparing for initial value calculation' % (self._model_id))
 
 
     def initialize_dynamic_states(self):
-        if self.is_dynamic is False:
+        method = self._get_dynamic_model_method('initialize_states')
+        if method is None:
             debug('Model %i is not dynamic, cannot initialize dynamic states' % (self._model_id))
             pass
+        elif method is False:
+            raise ModelError('model %i does not expose a method for getting dynamic state time derivatives' % (self._model_id))
         else:
-            try:
-                self.initialize_states()
-            except ModelError:
-                raise ModelError('model %i does not expose a method for getting dynamic state time derivatives' % (self._model_id))
+            method()
 
 
     def get_dynamic_internal_voltage_angle(self):
-        if self.is_dynamic is False:
+        method = self._get_dynamic_model_method('get_internal_voltage_angle')
+        if method is None:
             debug('Model %i is not dynamic, cannot shift internal voltage angle' % (self._model_id))
             return None
+        elif method is False:
+            raise ModelError('model %i does not expose a method for getting dynamic internal voltage angle' % (self._model_id))
         else:
-            try:
-                return self.get_internal_voltage_angle()
-            except ModelError:
-                raise ModelError('model %i does not expose a method for getting dynamic internal voltage angle' % (self._model_id))
+            return method()                
 
 
     def shift_dynamic_internal_voltage_angle(self, angle_to_shift):
@@ -186,24 +243,6 @@ class Model(object):
                 pass
 
 
-    # def save_bus_voltage_polar(self, Vpolar):
-    #     try:
-    #         self._save_bus_voltage_polar(Vpolar)
-    #     except AttributeError:
-    #         debug('Model %i does not expose a method for saving the bus polar voltage, saving to member variable Vpolar' % (self._model_id))
-    #         self.Vpolar = Vpolar
-    #         pass
-    #
-    #
-    # def save_apparent_power_injected_from_network(self, Snetwork):
-    #     try:
-    #         self._save_apparent_power_injected_from_network(Snetwork)
-    #     except AttributeError:
-    #         debug('Model %i does not expose a method for saving the apparent power injected from the network, saving to member variable Snetwork' % (self._model_id))
-    #         self.Snetwork = Snetwork
-    #         pass
-            
-
     def prepare_for_dynamic_simulation(self):
         if self.is_dynamic is False:
             debug('Model %i is not dynamic, cannot prepare for dynamic simulation' % (self._model_id))
@@ -216,15 +255,59 @@ class Model(object):
                 pass
 
 
-    def update_dynamic_states(self, numerical_integration_method):
+    def prepare_for_dynamic_state_update(self):
         if self.is_dynamic is False:
-            debug('Model %i is not dynamic, cannot update dynamic states' % (self._model_id))
+            debug('Model %i is not dynamic, cannot prepare dynamic state update' % (self._model_id))
             pass
         else:
             try:
-                self.update_states(numerical_integration_method)
+                self.prepare_for_state_update()
             except ModelError:
-                raise ModelError('model %i does not expose a method for updating the dynamic states' % (self._model_id))
+                raise ModelError('model %i does not expose a method to prepare for dynamic state update' % (self._model_id))
+
+
+    def get_current_dynamic_state_array(self):
+        method = self._get_dynamic_model_method('get_current_state_array')
+        if method is None:
+            debug('Model %i is not dynamic, cannot get current dynamic states' % (self._model_id))
+            return None
+        elif method is False:
+            raise ModelError('model %i does not expose a method for getting current dynamic states' % (self._model_id))
+        else:
+            return method()
+
+
+    def get_dynamic_state_time_derivative_array(self, current_states=None):
+        method = self._get_dynamic_model_method('get_state_time_derivative_array')
+        if method is None:
+            debug('Model %i is not dynamic, cannot get dynamic state time derivative array' % (self._model_id))
+            return None
+        elif method is False:
+            raise ModelError('model %i does not expose a method for getting dynamic state time derivative array' % (self._model_id))
+        else:
+            return method(current_states=current_states)
+
+
+    # def update_dynamic_states(self, numerical_integration_method):
+    #     if self.is_dynamic is False:
+    #         debug('Model %i is not dynamic, cannot update dynamic states' % (self._model_id))
+    #         pass
+    #     else:
+    #         try:
+    #             self.update_states(numerical_integration_method)
+    #         except ModelError:
+    #             raise ModelError('model %i does not expose a method for updating the dynamic states' % (self._model_id))
+
+
+    def save_new_dynamic_state_array(self, new_state_array):
+        if self.is_dynamic is False:
+            debug('Model %i is not dynamic, cannot save new dynamic state array' % (self._model_id))
+            pass
+        else:
+            try:
+                self.save_new_state_array(new_state_array)
+            except ModelError:
+                raise ModelError('model %i does not expose a method for saving new state array' % (self._model_id))
 
 
     def is_voltage_polar_static(self):

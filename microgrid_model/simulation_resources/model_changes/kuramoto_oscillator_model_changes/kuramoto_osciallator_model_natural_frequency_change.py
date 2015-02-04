@@ -1,5 +1,7 @@
 from logging import debug
 
+from numpy import array
+
 from kuramoto_osciallator_model_change import KuramotoOscillatorModelChange
 
 

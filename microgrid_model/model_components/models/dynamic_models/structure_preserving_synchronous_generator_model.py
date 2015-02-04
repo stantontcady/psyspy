@@ -119,22 +119,6 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
         self.reference_angular_velocity = reference_velocity
 
 
-    # def _save_bus_voltage_polar(self, Vpolar, k):
-    #     try:
-    #         if self.Vpolar_k < k:
-    #             self.Vpolar = Vpolar
-    #     self.Vpolar = Vpolar
-    #     # last iteration Vpolar was received
-    #     self.vpolar_k = k
-
-
-    # def _get_bus_voltage_polar(self):
-    #     try:
-    #         return self.Vpolar
-    #     except AttributeError:
-    #         raise AttributeError('bus polar voltage has not been saved to this model')
-
-
     def _get_real_power_injection(self, current_states=None):
         # voltage magnitude should only be static during initial value computation
         if self.is_voltage_magnitude_static() is True:
@@ -159,12 +143,6 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
                 d = None
 
             return self.__q_out_model(d=d)
-
-
-    # def _update_states(self, numerical_integration_method):
-    #     current_states = self._get_current_state_array()
-    #     updated_states = numerical_integration_method(current_states, self._get_state_time_derivative_array)
-    #     self._save_new_state_array(updated_states)
 
 
     def _get_state_time_derivative_array(self, current_states=None, current_setpoints=None):

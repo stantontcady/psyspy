@@ -4,7 +4,7 @@ from os.path import join as path_join
 from math import sin, cos
 
 from joblib import Parallel, delayed
-from numpy import append, array, zeros, frompyfunc, set_printoptions, inf
+from numpy import append, array, zeros, frompyfunc, set_printoptions, inf, hstack, empty
 from numpy.linalg import norm, cond
 from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import spsolve
@@ -29,6 +29,8 @@ class PowerNetwork(object):
         
         for bus in self.buses:
             bus.set_get_apparent_power_injected_from_network_method(self.compute_apparent_power_injected_from_network)
+            bus.set_get_connected_bus_admittance_from_network_method(self._get_connected_bus_admittances_by_bus_id)
+            bus.set_get_connected_bus_polar_voltage_from_network_method(self._get_connected_bus_polar_voltage_by_bus_id)
             
 
         
@@ -166,8 +168,34 @@ class PowerNetwork(object):
                 connected_bus_ids.append(connected_bus_id)
                 power_line_ids.append(power_line.get_id())
         return power_line_ids, connected_bus_ids
-        
-    
+
+
+    def _get_connected_bus_admittances_by_bus_id(self, bus_id, include_bus_ids=False):
+        connected_bus_ids = self.get_all_connected_bus_ids_by_id(bus_id)
+        interconnection_admittance = []
+        for connected_bus_id in connected_bus_ids:
+            Yij = self._get_admittance_value_from_bus_ids(bus_id, connected_bus_id)
+            interconnection_admittance.append(Yij)
+            
+        if include_bus_ids is True:
+            return interconnection_admittance, connected_bus_ids
+        else:
+            return interconnection_admittance
+
+
+    def _get_connected_bus_polar_voltage_by_bus_id(self, bus_id, include_bus_ids=False):
+        connected_bus_ids = self.get_all_connected_bus_ids_by_id(bus_id)
+        polar_voltages = []
+        for connected_bus_id in connected_bus_ids:
+            Vpolar = self.get_bus_by_id(connected_bus_id).get_current_voltage_polar()
+            polar_voltages.append(Vpolar)
+            
+        if include_bus_ids is True:
+            return polar_voltages, connected_bus_ids
+        else:
+            return polar_voltages
+
+
     def generate_admittance_matrix_index_bus_id_mapping(self, optimal_ordering=True):
         admittance_matrix_index_bus_id_mapping = {}
         if optimal_ordering is True:
@@ -597,14 +625,10 @@ class PowerNetwork(object):
 
         self_admittance = self._get_admittance_value_from_bus_ids(bus_id, bus_id)
 
-        interconnection_admittance = []
+        interconnection_admittance, connected_bus_ids = self._get_connected_bus_admittances_by_bus_id(bus_id, True)
 
-        connected_bus_ids = self.get_all_connected_bus_ids_by_id(bus_id)
-        for connected_bus_id in connected_bus_ids:
-            Yik = self._get_admittance_value_from_bus_ids(bus_id, connected_bus_id)
-            interconnection_admittance.append(Yik)
-
-        return (bus.is_voltage_polar_static(), bus.has_dynamic_model(), connected_bus_ids, interconnection_admittance, self_admittance)
+        return (bus.is_voltage_polar_static(), bus.has_dynamic_model(),
+                connected_bus_ids, interconnection_admittance, self_admittance)
 
 
     def solve_power_flow(self, optimal_ordering=True, append=True, force_static_var_recompute=False):
@@ -696,10 +720,12 @@ class PowerNetwork(object):
     def prepare_for_dynamic_simulation(self, reference_bus_id=None):
         # need a reference bus for dynamic simulation, use the slack bus if none provided
         if reference_bus_id is None:
-            reference_bus_id = self.get_slack_bus_id()
+            reference_bus = self.get_slack_bus()
+        else:
+            self.get_bus_by_id(reference_bus_id)
             
         self.unset_slack_bus()
-        self.set_voltage_angle_reference_bus_by_id(reference_bus_id)
+        self.set_voltage_angle_reference_bus(reference_bus)
         # retrieve referernce bus this way to ensure previous steps worked
         reference_bus = self.get_voltage_angle_reference_bus()
         if reference_bus.has_dynamic_model() is False:
@@ -714,12 +740,59 @@ class PowerNetwork(object):
         self.save_static_vars_list()
 
     
-    def prepare_for_dynamic_state_update(self, force_static_var_recompute=False):
+    def prepare_for_dynamic_state_update(self):
         for bus in self.get_buses_with_dynamic_models():
-            pass
-        
+            bus.prepare_for_dynamic_state_update()
 
-    def save_injected_apparent_power_to_bus_models(self):
+
+    def get_current_dynamic_states(self):
+        dynamic_states = empty(0)
+        self.dynamic_state_bus_index_mapping = []
         for bus in self.get_buses_with_dynamic_models():
-            Snetwork = self.compute_apparent_power_injected_from_network(bus)
-            bus.save_injected_apparent_power_to_model(Snetwork)
+            i = bus.get_id()
+            dynamic_states_i = bus.get_current_dynamic_state_array()
+            self.dynamic_state_bus_index_mapping.append((i, dynamic_states_i.shape[0]))
+            dynamic_states = hstack((dynamic_states, dynamic_states_i))
+
+        return dynamic_states
+
+
+    def _parse_current_dynamic_state_array(self, state_array, bus_id, num_states):
+        try:
+            dynamic_state_bus_index_mapping = self.dynamic_state_bus_index_mapping
+        except AttributeError:
+            raise AttributeError('FILL IN')
+        
+        i = dynamic_state_bus_index_mapping.index((bus_id, num_states))
+        
+        k = 0
+        for j in range(0, i):
+            k += dynamic_state_bus_index_mapping[j][1]
+        
+        return state_array[k:(k+num_states)]
+
+
+    def get_dynamic_state_time_derivative_array(self, current_states=None):
+        dynamic_state_derivatives = empty(0)
+        try:
+            dynamic_state_bus_index_mapping = self.dynamic_state_bus_index_mapping
+        except AttributeError:
+            raise AttributeError('FILL IN')
+        
+        if current_states is None:
+            current_states = self.get_current_dynamic_states()
+            
+        for bus_id, num_states in dynamic_state_bus_index_mapping:
+            current_states_i = self._parse_current_dynamic_state_array(current_states, bus_id, num_states)
+            dynamic_state_derivatives_i = self.get_bus_by_id(bus_id).get_dynamic_state_time_derivative_array(current_states=current_states_i)
+            dynamic_state_derivatives = hstack((dynamic_state_derivatives, dynamic_state_derivatives_i))
+        
+        return dynamic_state_derivatives
+
+
+    def update_dynamic_states(self, numerical_integration_method):
+        current_states = self.get_current_dynamic_states()
+        updated_states = numerical_integration_method(current_states, self.get_dynamic_state_time_derivative_array)
+        for bus_id, num_states in self.dynamic_state_bus_index_mapping:
+            updated_states_i = self._parse_current_dynamic_state_array(updated_states, bus_id, num_states)
+            self.get_bus_by_id(bus_id).save_new_dynamic_state_array(updated_states_i)

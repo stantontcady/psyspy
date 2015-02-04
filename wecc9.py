@@ -1,12 +1,7 @@
 #!/usr/bin/env python
 
-from microgrid_model import Bus, ConstantPowerLoad, PowerNetwork, PQBus, PVBus
+from microgrid_model import Bus, PowerNetwork, PQBus, PVBus
 from IPython import embed
-
-
-# la = ConstantPowerLoad(P=1.25, Q=0.5) # Station A
-# lb = ConstantPowerLoad(P=0.9, Q=0.3) # Station B
-# lc = ConstantPowerLoad(P=1, Q=0.35) # Station C
 
 b1 = PVBus(P=0.716, V=1.04, theta0=0)
 b2 = PVBus(P=1.63, V=1.025)

@@ -31,12 +31,16 @@ def incremental_state_method_bus(current_theta, i, j, k):
     j and k are the buses to which bus i is connected
     '''
     global U, D, B
+    # x = (U[i] - network_flow(B[i, j], B[i, k], current_theta, i, j, k))/D[i]
+    # print 'bus: %i , dd_dt: %f' % (i, x)
+    # if i == 5:
+    #     print 'bus: %i , dd_dt: %f' % ((i+1), (U[i] - network_flow(B[i, j], B[i, k], current_theta, i, j, k))/D[i])
     return (U[i] - network_flow(B[i, j], B[i, k], current_theta, i, j, k))/D[i]
 
 
 def network_flow(Bij, Bik, current_theta, i, j, k):
     '''
-    Bij and Bik is the susceptance matrix entries
+    Bij and Bik are the susceptance matrix entries
     current_theta is an array of thetas
     i is the bus for which the network flow is being computed
     j and k are the buses to which bus i is connected
@@ -69,8 +73,8 @@ def integrate(theta0, n, tsim, tstep):
         theta_array[k, :] = get_updated_states(theta_array[k-1, :], solver)
         t_vector[k] = t
         t += tstep
-        # if t >= tperturb_start and t < (tperturb_start + tstep):
-        #     U[5] = -1.1
+        if t >= tperturb_start and t < (tperturb_start + tstep):
+            U[5] = -1.1
         #if t >= tperturb_end and t < (tperturb_end + tstep):
         #    U[5] = -0.9
     return theta_array, t_vector
@@ -182,4 +186,4 @@ theta_array, t = integrate(theta0, n, tsim, tstep)
 
 plot_thetas(tsim, t, theta_array)
 
-embed()
+# embed()

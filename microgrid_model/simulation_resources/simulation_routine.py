@@ -84,6 +84,7 @@ class SimulationRoutine(object):
         n.prepare_for_dynamic_simulation()
 
         reference_bus = n.get_voltage_angle_reference_bus()
+        
 
         for k in range(0, self.num_simulation_steps):
             self.time_vector[k] = self.current_time
@@ -96,21 +97,17 @@ class SimulationRoutine(object):
                 force_static_var_recompute = True
             self.current_time += self.time_step
             
-            # n.prepare_for_dynamic_state_update(force_static_var_recompute=force_static_var_recompute)
+            n.prepare_for_dynamic_state_update()
 
-            reference_velocity = reference_bus.get_current_dynamic_angular_velocity()
+            # reference_velocity = reference_bus.get_current_dynamic_angular_velocity()
 
-            # n.save_injected_apparent_power_to_bus_models()
+            n.update_dynamic_states(numerical_integration_method=self.numerical_method.get_updated_states)
             
-            # n.update_dynamic_states(numerical_integration_method=self.numerical_integration_method.get_updated_states)
-            
-            for bus in n.get_buses_with_dynamic_models():
-                if n.is_voltage_angle_reference_bus(bus) is not True:
-                    bus.set_reference_dynamic_angular_velocity(reference_velocity)
-                
-                # bus.save_bus_voltage_polar_to_model()
-                
-                bus.update_dynamic_states(numerical_integration_method=self.numerical_method.get_updated_states)
+            # for bus in n.get_buses_with_dynamic_models():
+            #     if n.is_voltage_angle_reference_bus(bus) is not True:
+            #         bus.set_reference_dynamic_angular_velocity(reference_velocity)
+            #
+            #     bus.update_dynamic_states(numerical_integration_method=self.numerical_method.get_updated_states)
 
             # solve power flow without slack bus, make sure to leave append=True (this is the default option), tolerance=self.power_flow_tolerance
             if k == 0:
@@ -118,4 +115,4 @@ class SimulationRoutine(object):
             else:
                 append = True
 
-            _ = n.solve_power_flow(force_static_var_recompute=force_static_var_recompute, append=append)
+            # _ = n.solve_power_flow(force_static_var_recompute=force_static_var_recompute, append=append)

@@ -23,7 +23,7 @@ class RungeKutta45(object):
 
 
 class ForwardEuler(object):
-    
+
     def __init__(self, step_size):
         self.step_size = step_size
         

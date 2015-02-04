@@ -1,7 +1,7 @@
 import unittest
 
 from numpy import array, asarray, matrix, genfromtxt
-from numpy.testing import assert_array_equal, assert_array_almost_equal, assert_array_equal
+from numpy.testing import assert_array_equal, assert_array_almost_equal
 from scipy.sparse import lil_matrix
 
 from microgrid_model import Bus, PowerLine, PowerNetwork, PQBus, PVBus

@@ -30,6 +30,7 @@ class Bus(object):
         self.shunt_y = impedance_admittance_wrangler(shunt_z, shunt_y)
         
         self.model.set_get_bus_polar_voltage_method(self.get_current_voltage_polar)
+        self.model.set_update_bus_polar_voltage_method(self.update_voltage_polar)
 
 
     def __repr__(self):
@@ -62,6 +63,24 @@ class Bus(object):
         return self._bus_id
 
 
+    def set_get_connected_bus_polar_voltage_from_network_method(self, method):
+        self.get_connected_bus_polar_voltage_from_network_method = method
+        self.model.set_get_connected_bus_polar_voltage_from_network_method(self.get_connected_bus_polar_voltage_from_network)
+
+
+    def get_connected_bus_polar_voltage_from_network(self):
+        return self.get_connected_bus_polar_voltage_from_network_method(bus_id=self._bus_id)
+
+
+    def set_get_connected_bus_admittance_from_network_method(self, method):
+        self.get_connected_bus_admittance_from_network_method = method
+        self.model.set_get_connected_bus_admittance_from_network_method(self.get_connected_bus_admittance_from_network)
+
+
+    def get_connected_bus_admittance_from_network(self):
+        return self.get_connected_bus_admittance_from_network_method(self._bus_id)
+
+
     def set_get_apparent_power_injected_from_network_method(self, method):
         self.get_apparent_power_injected_from_network_method = method
         self.model.set_get_apparent_power_injected_from_network(self.get_apparent_power_injected_from_network)
@@ -84,16 +103,15 @@ class Bus(object):
         
     
     def prepare_for_dynamic_state_update(self):
-        pass
+        self.model.prepare_for_dynamic_state_update()
 
 
     def get_current_dynamic_state_array(self):
         return self.model.get_current_dynamic_state_array()
 
 
-    def get_dynamic_state_time_derivative_array(self):
-        Vpolar = self.get_current_voltage_polar()
-        return self.model.get_dynamic_state_time_derivative_array(Vpolar)
+    def get_dynamic_state_time_derivative_array(self, current_states=None):
+        return self.model.get_dynamic_state_time_derivative_array(current_states=current_states)
 
 
     def get_apparent_power_derivatives(self):
@@ -111,17 +129,12 @@ class Bus(object):
             return self.model.set_reference_dynamic_angular_velocity(reference_velocity)
 
 
-    # def save_bus_voltage_polar_to_model(self):
-    #     Vpolar = self.get_current_voltage_polar()
-    #     self.model.save_bus_voltage_polar(Vpolar)
-    #
-    #
-    # def save_injected_apparent_power_to_model(self, Snetwork):
-    #     self.model.save_apparent_power_injected_from_network(Snetwork)
+    # def update_dynamic_states(self, numerical_integration_method):
+    #     self.model.update_dynamic_states(numerical_integration_method)
 
 
-    def update_dynamic_states(self, numerical_integration_method):
-        self.model.update_dynamic_states(numerical_integration_method)
+    def save_new_dynamic_state_array(self, new_state_array):
+        self.model.save_new_dynamic_state_array(new_state_array)
 
 
     def set_initial_voltage_polar(self, Vpolar=()):
@@ -150,15 +163,15 @@ class Bus(object):
 
     def get_initial_voltage_angle(self):
         return self.get_voltage_angle_by_index(0)
-    
-        
+
+
     def get_current_voltage_polar(self):
         return self.get_current_voltage_magnitude(), self.get_current_voltage_angle()
-       
-        
+
+
     def get_current_voltage_magnitude(self):
         return self.get_voltage_magnitude_by_index(-1)
-        
+
 
     def get_current_voltage_angle(self):
         return self.get_voltage_angle_by_index(-1)
@@ -185,8 +198,14 @@ class Bus(object):
         except IndexError:
             raise BusError('polar voltage does not have two components')
         
-        Vout = self.update_voltage_magnitude(V, replace=replace)
-        thetaOut = self.update_voltage_angle(theta, replace=replace)
+        if V is not None:
+            Vout = self.update_voltage_magnitude(V, replace=replace)
+        else:
+            Vout = self.get_current_voltage_magnitude()
+        if theta is not None:
+            thetaOut = self.update_voltage_angle(theta, replace=replace)
+        else:
+            thetaOut = self.get_current_voltage_angle()
         return Vout, thetaOut            
             
     

@@ -20,17 +20,17 @@ l2 = ConstantApparentPowerModel(P=0.9, Q=0.3)
 l3 = ConstantApparentPowerModel(P=1, Q=0.35)
 
 g1 = StructurePreservingSynchronousGeneratorModel(
-    parameters={'H': 23.64, 'Xdp': 0.0608, 'D': 0.0125},
+    parameters={'H': 23.64, 'Xdp': 0.00608, 'D': 0.0125},
     initial_setpoint=0.716
 )
 
 g2 = StructurePreservingSynchronousGeneratorModel(
-    parameters={'H': 6.4, 'Xdp': 0.1198, 'D': 0.00679},
+    parameters={'H': 6.4, 'Xdp': 0.01198, 'D': 0.00679},
     initial_setpoint=1.63
 )
 
 g3 = StructurePreservingSynchronousGeneratorModel(
-    parameters={'H': 3.01, 'Xdp': 0.1813, 'D': 0.00479},
+    parameters={'H': 3.01, 'Xdp': 0.01813, 'D': 0.00479},
     initial_setpoint=0.85
 )
 
@@ -60,6 +60,8 @@ n.set_slack_bus(b1)
 
 c1 = ConstantPowerLoadChange(start_time=0.5, affected_model=l2, new_P=2, end_time=1.0)
 
+embed()
+
 sim = SimulationRoutine(n, 5, model_changes=[c1])
 sim.run_simulation()
 t = sim.time_vector
@@ -77,24 +79,31 @@ t = sim.time_vector
 #         pass
 #
 # show()
-
-w1 = g1.w[0:(g1.w.shape[0]-1)]
-w2 = g2.w[0:(g2.w.shape[0]-1)]
-w3 = g3.w[0:(g3.w.shape[0]-1)]
-
-figure(1)
-plot(t, w1, t, w2, t, w3)
-ymin = min(amin(w1), amin(w2), amin(w2)) - 0.1
-ymax = max(amax(w1), amax(w2), amax(w2)) + 0.1
-ylim(ymin, ymax)
-print abs(2*pi*60-w1[-1])
-print abs(2*pi*60-w2[-1])
-print abs(2*pi*60-w3[-1])
-ylim(ymin, ymax)
+# figure(1)
+# for bus in n.buses:
+#     plot(t, bus.model.d[0:(bus.model.d.shape[0]-1)])
+embed()
 figure(2)
-plot(t, w2)
-ylim(ymin, ymax)
-figure(3)
-plot(t, w3)
-ylim(ymin, ymax)
+for bus in n.buses:
+    plot(t, bus.theta)
 show()
+# w1 = g1.w[0:(g1.w.shape[0]-1)]
+# w2 = g2.w[0:(g2.w.shape[0]-1)]
+# w3 = g3.w[0:(g3.w.shape[0]-1)]
+#
+# figure(1)
+# plot(t, w1, t, w2, t, w3)
+# ymin = min(amin(w1), amin(w2), amin(w2)) - 0.1
+# ymax = max(amax(w1), amax(w2), amax(w2)) + 0.1
+# ylim(ymin, ymax)
+# print abs(2*pi*60-w1[-1])
+# print abs(2*pi*60-w2[-1])
+# print abs(2*pi*60-w3[-1])
+# ylim(ymin, ymax)
+# figure(2)
+# plot(t, w2)
+# ylim(ymin, ymax)
+# figure(3)
+# plot(t, w3)
+# ylim(ymin, ymax)
+# show()

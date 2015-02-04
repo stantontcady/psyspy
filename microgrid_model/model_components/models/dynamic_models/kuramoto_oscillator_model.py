@@ -1,9 +1,9 @@
 from inspect import currentframe, getargvalues
 from logging import debug, info, warning
-from math import asin, atan, cos, pi, sin, sqrt
+from math import sin
 from operator import itemgetter
 
-from numpy import append, array, empty, nan
+from numpy import append, array, empty, nan, nditer, zeros, hstack
 
 from dynamic_model import DynamicModel
 from microgrid_model.exceptions import ModelError
@@ -63,98 +63,89 @@ class KuramotoOscillatorModel(DynamicModel):
 
         
     def _prepare_for_initial_value_calculation(self):
-        pass
+        self.initial_value_state = True
+
+
+    def _prepare_for_state_update(self):
+        connected_bus_angles = []
+        for _, theta in self.get_connected_bus_polar_voltage_from_network():
+            connected_bus_angles.append(theta)
+        
+        self.connected_bus_angles = connected_bus_angles
+        
+        admittances = self.get_connected_bus_admittance_from_network()
+        # conductances = [y[0] for y in admittances]
+        self.susceptances = [y[1] for y in admittances]
+
+
+    def _initialize_states(self):
+        # initial torque angle is whatever the voltage angle is for the bus
+        _, theta = self.get_polar_voltage_from_bus()
+        set_initial_conditions(self, 'd', theta)
 
 
     def _prepare_for_simulation(self):
-        pass
-
-
-    def _initialize_states(self, Vpolar, Snetwork):
-        d0 = Vpolar[1]
-        set_initial_conditions(self, 'd', d0)
+        self.initial_value_state = False
 
 
     def _get_internal_voltage_angle(self):
-        d = self._get_current_state_array()[0]
-        return d
-
-
-    def _get_real_power_injection(self, current_states=None):
-        u = self._get_current_setpoint_array()[0]
-        try:
-            Pnetwork, _ = self.Snetwork
-        except AttributeError:
-            Pnetwork = None
-
-        if Pnetwork is None:
-            return u
-        else:
-            dd_dt = self._dd_dt_model(Pnetwork)
-            return u - dd_dt*self.D
-
-
-    def _get_reactive_power_injection(self, Vpolar, current_states=None):
-        return 0
-        
-    
-    # def _save_apparent_power_injected_from_network(self, Snetwork, k):
-    #     self.Snetwork = Snetwork
-    #     # last iteration Snetwork was received
-    #     self.snetwork_k = k
-
-
-    # def _update_states(self, numerical_integration_method):
-    #     current_states = self._get_current_state_array()
-    #     updated_states = numerical_integration_method(current_states, self._get_state_time_derivative_array)
-    #     self._save_new_state_array(updated_states)
-
-
-    def _get_state_time_derivative_array(self, current_states=None, current_setpoints=None):
-        try:
-            Pnetwork, _ = self.Snetwork
-        except AttributeError:
-            raise AttributeError('cannot get time derivative array for model %i, no member variable called Snetwork' % (self._model_id))
-
-        dd_dt = self._dd_dt_model(Pnetwork, current_states=current_states)
-        return array([dd_dt])
-
-
-    def _save_new_state_array(self, new_states):
-        d = self._parse_state_array(new_states)
-        self.d = append(self.d, d)
-        return self._get_current_state_array()
-        
-        
-    def _parse_state_array(self, state_array):
-        if state_array.ndim != 1 and len(state_array) != 1:
-            raise ModelError('state array is the wrong dimension or size')
-        
-        try:
-            d = state_array
-        except IndexError:
-            raise IndexError('state array does not have 1 element')
-        
-        return d
-            
-    
-    def _get_current_state_array(self):
         try:
             d = self.d[-1]
         except AttributeError, IndexError:
             debug('Could not get current torque angle, defaulting to NAN.')
             d = nan
+
+        return d
+
+
+    def _get_real_power_injection(self, current_states=None):
+        u = self._get_current_setpoint_array()[0]
+
+        if self.initial_value_state is True:
+            return u
+        else:
+            dd_dt = self.__dd_dt_model()
+            return u - dd_dt*self.D
+
+
+    def _get_reactive_power_injection(self, current_states=None):
+        return 0
+
+
+    def _get_state_time_derivative_array(self, current_states=None, current_setpoints=None):
+        dd_dt = self.__dd_dt_model(current_states=current_states, current_setpoints=current_setpoints)
+        return hstack((array([dd_dt]), zeros(len(self.connected_bus_angles))))
+
+
+    def _save_new_state_array(self, new_state_array):
+        d = self.__parse_state_array(new_state_array)
+        self.d = append(self.d, d)
+        self.update_bus_polar_voltage((None, d), replace=False)
+        # return array([d])
+        
+        
+    def __parse_state_array(self, state_array):
+        return state_array[0]
             
-        return array([d])
+    
+    def _get_current_state_array(self):
+        try:
+            connected_bus_angles = self.connected_bus_angles
+        except:
+            connected_bus_angles = []
+        angles = [self._get_internal_voltage_angle()]
+        angles.extend(connected_bus_angles)
+            
+        return array(angles)
 
 
     def _save_new_setpoint_array(self, new_setpoints):
-        u = self._parse_setpoint_array(new_setpoints)
+        u = self.__parse_setpoint_array(new_setpoints)
         self.u = append(self.u, u)
         return self._get_current_state_array()
 
 
-    def _parse_setpoint_array(self, setpoint_array):
+    def __parse_setpoint_array(self, setpoint_array):
         if setpoint_array.ndim != 1 and len(setpoint_array) != 1:
             raise ModelError('setpoint array is the wrong dimension or size')
         
@@ -176,10 +167,23 @@ class KuramotoOscillatorModel(DynamicModel):
         return array([u])
 
 
-    def _dd_dt_model(self, Pnetwork, current_states=None, current_setpoints=None):
+    def __dd_dt_model(self, current_states=None, current_setpoints=None):
         if current_setpoints is None:
             u = self._get_current_setpoint_array()[0]
         else:
-            u = self._parse_state_array(current_setpoints)
-        return (u - Pnetwork)/self.D
+            u = self.__parse_setpoint_array(current_setpoints)
+
+        if current_states is None:
+            current_states = self._get_current_state_array()
+
+        theta_i = current_states[0]
+        # admittances = self.get_connected_bus_admittance_from_network()
+        # # conductances = [y[0] for y in admittances]
+        # susceptances = [y[1] for y in admittances]
+
+        network_flow = 0
+        for theta_j, Bij in nditer([current_states[1:], self.susceptances]):
+            network_flow -= Bij*sin(theta_i - theta_j)
+
+        return (u - network_flow)/self.D
         
