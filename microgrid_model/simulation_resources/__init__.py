@@ -1,4 +1,4 @@
-from perturbations import  KuramotoOscillatorModelNaturalFrequencyPerturbation
+from perturbations import KuramotoOscillatorLoadModelRealPowerSetpointPerturbation
 #ConstantApparentPowerModelApparentPowerInjectionPerturbation,
 from numerical_methods import NewtonRhapson, RungeKutta45
 # from power_line_changes import TemporaryPowerLineImpedanceChange

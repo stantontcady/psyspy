@@ -30,6 +30,11 @@ class SimulationRoutine(object):
         self.numerical_method = RungeKutta45(time_step)
         # self.numerical_method = ForwardEuler(time_step)
         
+        if controller is not None and isinstance(controller, Controller) is False:
+            raise TypeError('controller must be an instance of the Controller class or a subclass thereof')
+        else:
+            self.controller = controller
+        
         self.perturbations = [] 
         if perturbations is not None:
             if type(perturbations) is not list:
@@ -37,10 +42,11 @@ class SimulationRoutine(object):
 
             for perturbation in perturbations:
                 if isinstance(perturbation, Perturbation) is False:
-                    raise TypeError('perturbations must be an instance of the Perturbation type or a subclass thereof')
+                    raise TypeError('perturbations must be an instance of the Perturbation class or a subclass thereof')
                 if perturbation.end_time is not None:
                     if perturbation.end_time >= simulation_time or perturbation.end_time is None:
-                        debug('Perturbation %i does not revert to normal conditions before end of simulation' % (perturbation.get_id()))
+                        debug('Perturbation %i does not revert to normal conditions before end of simulation' % 
+                              (perturbation.get_id()))
                         continue
                 if perturbation.enabled is True:
                     self.add_perturbation(perturbation)
@@ -48,13 +54,16 @@ class SimulationRoutine(object):
 
     def add_perturbation(self, perturbation):
         if perturbation.start_time > (self.simulation_time - self.time_step):
-            warning('Cannot add perturbation %i, the start time is after end of simulation or in last time step.' % (perturbation.get_id()))
+            warning('Cannot add perturbation %i, the start time is after end of simulation or in last time step.' % 
+                    (perturbation.get_id()))
             return False
         
         start_time_time_step_ratio = float(perturbation.start_time)/float(self.time_step)
 
         if int(start_time_time_step_ratio) - start_time_time_step_ratio != 0.0:
-            debug('Perturbation %i does not occur at a time instant included in the simulation, it will be activated immediately after the nearest time step, i.e., %f seconds late.' % (system_change.get_change_id(), ceil(start_time_time_step_ratio)*self.time_step - model_change.start_time))
+            debug('Perturbation %i does not occur at a time instant included in the simulation, ' + \
+                  'it will be activated immediately after the nearest time step, i.e., %f seconds late.' % 
+                  (system_change.get_change_id(), ceil(start_time_time_step_ratio)*self.time_step - model_change.start_time))
         self.perturbations.append(perturbation)
         return True
 
@@ -85,6 +94,13 @@ class SimulationRoutine(object):
                 admittance_matrix_recompute_required = True
         
         return admittance_matrix_recompute_required
+
+
+    def check_controller_active(self):
+        if self.controller is None:
+            pass
+        else:
+            pass
             
             
     def run_simulation(self):
@@ -101,6 +117,7 @@ class SimulationRoutine(object):
         for k in range(0, self.num_simulation_steps):
             self.time_vector[k] = self.current_time
             admittance_matrix_recompute_required = self.check_all_perturbations_active()
+            self.check_controller_active()
             
             n.prepare_for_dynamic_state_update()
 

@@ -9,7 +9,7 @@ from numpy import amax, amin
 
 from microgrid_model import Bus, PowerNetwork, ConstantApparentPowerModel, KuramotoOscillatorLoadModel as KuramotoLoad
 from microgrid_model import KuramotoOscillatorGeneratorModel as KuramotoGenerator
-from microgrid_model import SimulationRoutine, KuramotoOscillatorModelNaturalFrequencyPerturbation as KuramotoLoadPerturbation
+from microgrid_model import SimulationRoutine, KuramotoOscillatorLoadModelRealPowerSetpointPerturbation as KuramotoLoadPerturbation
 
 logger = getLogger()
 logger.setLevel(10)
@@ -61,8 +61,8 @@ line5 = n.connect_buses(b3, b6, z=(0, 0.2286))
 line6 = n.connect_buses(b3, b4, z=(0, 0.1594))
 
 n.set_slack_bus(b1)
-p1 = KuramotoLoadPerturbation(affected_model=l3, new_natural_frequency=-1.1, start_time=0.1, end_time=0.2)
-p2 = KuramotoLoadPerturbation(affected_model=l2, new_natural_frequency=-1, start_time=0.5, end_time=0.6)
+p1 = KuramotoLoadPerturbation(affected_model=l3, new_load=1.1, start_time=0.1, end_time=0.2)
+p2 = KuramotoLoadPerturbation(affected_model=l2, new_load=1, start_time=0.5, end_time=0.6)
 
 sim = SimulationRoutine(n, 1, perturbations=[p1, p2], time_step=0.001)
 sim.run_simulation()
@@ -76,7 +76,7 @@ for bus in n.buses:
 # for bus in n.buses:
 #     plot(t, bus.theta[0:(bus.theta.shape[0]-1)])
 
-# embed()
+embed()
 show()
 
 # w1 = g1.w[0:(g1.w.shape[0]-1)]

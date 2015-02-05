@@ -61,7 +61,11 @@ class KuramotoOscillatorModel(DynamicModel):
             
         return object_info
 
-        
+
+    def _get_damping_coefficient(self):
+        return self.D
+
+
     def _prepare_for_initial_value_calculation(self):
         self.initial_value_state = True
 
@@ -142,7 +146,12 @@ class KuramotoOscillatorModel(DynamicModel):
     def _save_new_setpoint_array(self, new_setpoints):
         u = self.__parse_setpoint_array(new_setpoints)
         self.u = append(self.u, u)
-        return self._get_current_state_array()
+        if self._get_current_setpoint_array() != new_setpoints:
+            raise ModelError('there was an error saving new setpoint array')
+
+
+    def _change_real_power_setpoint(self, new_setpoint):
+        self._save_new_setpoint_array(array([new_setpoint]))
 
 
     def __parse_setpoint_array(self, setpoint_array):

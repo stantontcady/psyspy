@@ -274,8 +274,11 @@ class PowerNetwork(object):
             (gi, bi) = bus_i.shunt_y
             G[i, i] += gi
             B[i, i] -= bi    
-
-        return lil_matrix(G), lil_matrix(B)
+        
+        if n > 1:
+            G = lil_matrix(G)
+            B = lil_matrix(B)
+        return G, B
         
     
     def save_admittance_matrix(self, G=None, B=None, optimal_ordering=True):
@@ -539,8 +542,10 @@ class PowerNetwork(object):
                     interconnection_admittance_list, self_admittance_list, voltage_list,
                     dgr_derivatives) for index, _ in enumerate(admittance_matrix_index_bus_id_mapping))
 
-
-        return lil_matrix(J)
+        # no need to save as sparse matrix if there's only one element, and it breaks spsolve
+        if n > 1:
+            J = lil_matrix(J)
+        return J
 
 
     def _get_varying_vars_list(self, index_bus_id_mapping=None):

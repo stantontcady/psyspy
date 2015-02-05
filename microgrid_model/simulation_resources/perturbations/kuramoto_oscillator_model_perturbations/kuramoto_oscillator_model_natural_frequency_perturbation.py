@@ -19,12 +19,13 @@ class KuramotoOscillatorModelNaturalFrequencyPerturbation(KuramotoOscillatorMode
             self.old_natural_frequency = old_natural_frequency
             self.new_natural_frequency = new_natural_frequency
         
-        self._change_type = 'kuramoto_oscillator_model_natural_frequency_change'
+        self._change_type = 'kuramoto_oscillator_model_natural_frequency_perturbation'
 
 
     def _activate(self):
-        self.affected_model._save_new_setpoint_array(array([self.new_natural_frequency]))
+        # no need to try / except for the following method as only KuramotoOscillatorModel affected_models are allowed
+        self.affected_model.change_dynamic_model_real_power_setpoint(self.new_natural_frequency)
 
 
     def _deactivate(self):
-        self.affected_model._save_new_setpoint_array(array([self.old_natural_frequency]))
+        self.affected_model.change_dynamic_model_real_power_setpoint(self.old_natural_frequency)

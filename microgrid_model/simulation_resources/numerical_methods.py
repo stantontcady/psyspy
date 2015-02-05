@@ -1,5 +1,3 @@
-
-
 from numpy import inf
 from numpy.linalg import cond, norm, solve
 from scipy.sparse import csr_matrix, isspmatrix, isspmatrix_csr
@@ -59,7 +57,6 @@ class NewtonRhapson(object):
         k = 0
         while True:
             J = get_jacobian_method()
-
 
             if isspmatrix(J):
                 if isspmatrix_csr(J) is False:
