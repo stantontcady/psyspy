@@ -341,7 +341,7 @@ def plot_thetas(tsim, t, theta_array):
 set_printoptions(linewidth=175)
 n = 6
 tsim = 16
-tstep = 0.0005
+tstep = 0.0001
 
 # theta is used as a global var, initialize it to nothing
 theta = empty(n)

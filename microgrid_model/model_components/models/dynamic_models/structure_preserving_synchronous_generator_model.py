@@ -7,7 +7,7 @@ from numpy import append, array, empty, nan
 
 from dynamic_model import DynamicModel
 from microgrid_model.exceptions import ModelError
-from microgrid_model import set_initial_conditions, set_parameter_value
+from microgrid_model.helper_functions import set_initial_conditions, set_parameter_value
 
 
 class StructurePreservingSynchronousGeneratorModel(DynamicModel):

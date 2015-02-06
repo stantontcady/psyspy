@@ -7,7 +7,7 @@ from numpy import append, array, empty, nan, nditer, zeros, hstack
 
 from dynamic_model import DynamicModel
 from microgrid_model.exceptions import ModelError
-from microgrid_model import set_initial_conditions, set_parameter_value
+from microgrid_model.helper_functions import set_initial_conditions, set_parameter_value
 
 
 class KuramotoOscillatorModel(DynamicModel):
@@ -102,6 +102,10 @@ class KuramotoOscillatorModel(DynamicModel):
         return d
 
 
+    def _shift_internal_voltage_angle(self, _):
+        pass
+
+
     def _get_real_power_injection(self, current_states=None):
         u = self._get_current_setpoint_array()[0]
 
@@ -148,6 +152,10 @@ class KuramotoOscillatorModel(DynamicModel):
         self.u = append(self.u, u)
         if self._get_current_setpoint_array() != new_setpoints:
             raise ModelError('there was an error saving new setpoint array')
+
+
+    def _get_real_power_setpoint(self):
+        return self._get_current_setpoint_array()[0]
 
 
     def _change_real_power_setpoint(self, new_setpoint):

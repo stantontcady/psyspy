@@ -102,6 +102,13 @@ class DynamicModel(Model):
             raise AttributeError('dynamic model %i does not have a member function for getting the damping coefficient' % (self._model_id))
 
 
+    def get_real_power_setpoint(self):
+        try:
+            return self._get_real_power_setpoint()
+        except AttributeError:
+            raise AttributeError('dynamic model %i does not have a member function for changing the real power setpoint' % (self._model_id))
+
+
     def change_real_power_setpoint(self, new_setpoint):
         try:
             self._change_real_power_setpoint(new_setpoint)

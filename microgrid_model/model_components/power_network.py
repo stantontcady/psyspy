@@ -46,7 +46,15 @@ class PowerNetwork(object):
     def set_solver_tolerance(self, new_tolerance):
         return self.solver.set_tolerance(new_tolerance)
 
-        
+
+    def get_number_of_buses(self):
+        return len(self.buses)
+
+
+    def get_number_of_power_lines(self):
+        return len(self.power_lines)
+
+
     def add_bus(self, bus):
         if self.bus_in_network(bus) is False:
             self.buses.append(bus)

@@ -301,6 +301,17 @@ class Model(object):
         return None
 
 
+    def get_dynamic_model_real_power_setpoint(self):
+        method = self._get_dynamic_model_method('get_real_power_setpoint')
+        if method is None:
+            debug('Model %i is not dynamic, cannot get real power setpoint' % (self._model_id))
+        elif method is False:
+            debug('model %i does not expose a method for getting real power setpoint' % (self._model_id))
+        else:
+            return method()
+        return None
+
+
     def change_dynamic_model_real_power_setpoint(self, new_setpoint):
         method = self._get_dynamic_model_method('change_real_power_setpoint')
         if method is None:
@@ -309,7 +320,7 @@ class Model(object):
             debug('model %i does not expose a method for changing real power setpoint' % (self._model_id))
         else:
             method(new_setpoint)
-        return None
+        pass
 
 
     def is_voltage_polar_static(self):

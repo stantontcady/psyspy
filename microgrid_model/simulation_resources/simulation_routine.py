@@ -1,8 +1,9 @@
 from logging import debug, info, warning
-from math import ceil
+from math import ceil, pi
 
-from numpy import empty
+from numpy import empty, append
 
+from microgrid_model.controllers import Controller
 from numerical_methods import RungeKutta45, ForwardEuler
 from perturbations import Perturbation
 
@@ -95,12 +96,18 @@ class SimulationRoutine(object):
         
         return admittance_matrix_recompute_required
 
-
-    def check_controller_active(self):
+    def initialize_controller(self):
         if self.controller is None:
             pass
         else:
+            self.controller.initialize()
+
+
+    def update_controller(self, t, dt):
+        if self.controller is None:
             pass
+        else:
+            self.controller.update(t, dt)
             
             
     def run_simulation(self):
@@ -113,16 +120,28 @@ class SimulationRoutine(object):
         
         n.initialize_dynamic_model_states()
         n.prepare_for_dynamic_simulation()
+        
+        self.initialize_controller()
+        
+        # for bus in n.buses:
+        #     bus.w = append(bus.w, 2*pi*60)
 
         for k in range(0, self.num_simulation_steps):
             self.time_vector[k] = self.current_time
             admittance_matrix_recompute_required = self.check_all_perturbations_active()
-            self.check_controller_active()
+            
+            self.update_controller(self.current_time, self.time_step)
             
             n.prepare_for_dynamic_state_update()
 
             n.update_dynamic_states(numerical_integration_method=self.numerical_method.get_updated_states)
             
             n.update_algebraic_states(admittance_matrix_recompute_required=admittance_matrix_recompute_required)
+            
+            # if k > 1:
+            #     for bus in n.buses:
+            #         theta_k = bus.theta[-1]
+            #         theta_km1 = bus.theta[-2]
+            #         bus.w = append(bus.w, 2*pi*60 + (theta_k - theta_km1)/self.time_step)
 
             self.current_time += self.time_step

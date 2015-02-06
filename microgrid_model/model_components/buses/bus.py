@@ -1,5 +1,6 @@
 from logging import debug, info, warning
 from itertools import count
+from math import pi
 
 from numpy import append, nan
 
@@ -31,6 +32,8 @@ class Bus(object):
         
         self.model.set_get_bus_polar_voltage_method(self.get_current_voltage_polar)
         self.model.set_update_bus_polar_voltage_method(self.update_voltage_polar)
+        
+        set_initial_conditions(self, 'w', 2*pi*60)
 
 
     def __repr__(self):
@@ -131,6 +134,18 @@ class Bus(object):
 
     def save_new_dynamic_state_array(self, new_state_array):
         self.model.save_new_dynamic_state_array(new_state_array)
+
+
+    def get_dynamic_damping_coefficient(self):
+        return self.model.get_dynamic_damping_coefficient()
+
+
+    def get_dynamic_model_real_power_setpoint(self):
+        return self.model.get_dynamic_model_real_power_setpoint()
+
+
+    def change_dynamic_model_real_power_setpoint(self, new_setpoint):
+        self.model.change_dynamic_model_real_power_setpoint(new_setpoint)
 
 
     def set_initial_voltage_polar(self, Vpolar=()):
