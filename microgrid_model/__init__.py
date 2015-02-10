@@ -1,4 +1,3 @@
-from controllers import Controller, FiniteTimeApproximateRatioConsensusController
 from exceptions import GeneratorModelError, ModelError, PowerLineError, PowerNetworkError
 
 from helper_functions import check_method_exists_and_callable, impedance_admittance_wrangler, set_initial_conditions, set_parameter_value

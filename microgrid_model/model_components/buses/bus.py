@@ -14,6 +14,7 @@ class Bus(object):
     def __init__(self, model=None, V0=None, theta0=None, shunt_z=(), shunt_y=()):
         if model is None:
             model = Model()
+
         elif isinstance(model, Model) is False:
             raise TypeError('provided model must an instance of the Model type or a subclass thereof')
             
@@ -33,7 +34,7 @@ class Bus(object):
         self.model.set_get_bus_polar_voltage_method(self.get_current_voltage_polar)
         self.model.set_update_bus_polar_voltage_method(self.update_voltage_polar)
         
-        set_initial_conditions(self, 'w', 2*pi*60)
+        set_initial_conditions(self, 'w', 0)
 
 
     def __repr__(self):

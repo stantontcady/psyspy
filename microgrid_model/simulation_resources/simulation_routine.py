@@ -3,7 +3,6 @@ from math import ceil, pi
 
 from numpy import empty, append
 
-from microgrid_model.controllers import Controller
 from numerical_methods import RungeKutta45, ForwardEuler
 from perturbations import Perturbation
 
@@ -31,10 +30,10 @@ class SimulationRoutine(object):
         self.numerical_method = RungeKutta45(time_step)
         # self.numerical_method = ForwardEuler(time_step)
         
-        if controller is not None and isinstance(controller, Controller) is False:
-            raise TypeError('controller must be an instance of the Controller class or a subclass thereof')
-        else:
-            self.controller = controller
+        # if controller is not None and isinstance(controller, Controller) is False:
+            # raise TypeError('controller must be an instance of the Controller class or a subclass thereof')
+        # else:
+        self.controller = controller
         
         self.perturbations = [] 
         if perturbations is not None:
@@ -96,6 +95,7 @@ class SimulationRoutine(object):
         
         return admittance_matrix_recompute_required
 
+
     def initialize_controller(self):
         if self.controller is None:
             pass
@@ -123,8 +123,9 @@ class SimulationRoutine(object):
         
         self.initialize_controller()
         
-        # for bus in n.buses:
-        #     bus.w = append(bus.w, 2*pi*60)
+        for bus in n.buses:
+            bus.w = append(bus.w, 0)
+            bus.w = append(bus.w, 0)
 
         for k in range(0, self.num_simulation_steps):
             self.time_vector[k] = self.current_time
@@ -135,13 +136,16 @@ class SimulationRoutine(object):
             n.prepare_for_dynamic_state_update()
 
             n.update_dynamic_states(numerical_integration_method=self.numerical_method.get_updated_states)
+            if k ==9:
+                # embed()
+                pass
             
             n.update_algebraic_states(admittance_matrix_recompute_required=admittance_matrix_recompute_required)
             
-            # if k > 1:
-            #     for bus in n.buses:
-            #         theta_k = bus.theta[-1]
-            #         theta_km1 = bus.theta[-2]
-            #         bus.w = append(bus.w, 2*pi*60 + (theta_k - theta_km1)/self.time_step)
+            if k > 1:
+                for bus in n.buses:
+                    theta_k = bus.theta[-1]
+                    theta_km1 = bus.theta[-2]
+                    bus.w = append(bus.w, (theta_k - theta_km1)/self.time_step)
 
             self.current_time += self.time_step
