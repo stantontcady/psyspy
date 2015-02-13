@@ -10,6 +10,7 @@ from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import spsolve
 
 from ..exceptions import PowerNetworkError
+from buses import Bus
 from power_line import PowerLine
 from power_network_helper_functions import fp_fq_helper, connected_bus_helper, jacobian_hij_helper, jacobian_nij_helper, \
                                            jacobian_kij_helper, jacobian_lij_helper, jacobian_diagonal_helper, \
@@ -20,10 +21,20 @@ from IPython import embed
 class PowerNetwork(object):
     
     def __init__(self, buses=[], power_lines=[], solver_tolerance=0.00001):
-        self.buses = []
+        for bus in buses:
+            if isinstance(bus, Bus) is False:
+                raise TypeError('buses must be a list of instances of Bus type or a subclass thereof')
+        
+        self.buses = []        
         self.buses.extend(buses)
+
+        for power_line in power_lines:
+            if isinstance(power_line, PowerLine) is False:
+                raise TypeError('power lines must be a list of instances of PowerLine type or a subclass thereof')
+
         self.power_lines = []
         self.power_lines.extend(power_lines)
+
         set_printoptions(linewidth=175)
         self.solver = NewtonRhapson(tolerance=solver_tolerance)
         
@@ -41,6 +52,29 @@ class PowerNetwork(object):
         for power_line in self.power_lines:
             output += power_line.repr_helper(simple=True, indent_level_increment=2)
         return output
+
+
+    def __iter__(self):
+        return iter(self.buses)
+
+
+    def __len__(self):
+        return len(self.buses)
+
+
+    def __contains__(self, obj):
+        if isinstance(obj, Bus):
+            try:
+                return obj in self.buses
+            except AttributeError:
+                pass
+        elif isinstance(obj, PowerLine):
+            try:
+                return obj in self.power_lines
+            except AttributeError:
+                pass
+        
+        return False
 
 
     def set_solver_tolerance(self, new_tolerance):

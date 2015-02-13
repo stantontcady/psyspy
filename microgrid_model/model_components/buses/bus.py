@@ -8,6 +8,7 @@ from microgrid_model.exceptions import BusError, ModelError
 from microgrid_model import impedance_admittance_wrangler, set_initial_conditions
 from ..models import Model
 
+
 class Bus(object):
     _bus_ids = count(0)
     
@@ -39,6 +40,13 @@ class Bus(object):
 
     def __repr__(self):
         return '\n'.join([line for line in self.repr_helper()])
+
+
+    def __contains__(self, model):
+        if isinstance(model, Model) is True:
+            return model is self.model
+        
+        return False
 
 
     def repr_helper(self, simple=False, indent_level_increment=2):
