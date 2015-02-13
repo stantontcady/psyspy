@@ -136,9 +136,6 @@ class SimulationRoutine(object):
             n.prepare_for_dynamic_state_update()
 
             n.update_dynamic_states(numerical_integration_method=self.numerical_method.get_updated_states)
-            if k ==9:
-                # embed()
-                pass
             
             n.update_algebraic_states(admittance_matrix_recompute_required=admittance_matrix_recompute_required)
             

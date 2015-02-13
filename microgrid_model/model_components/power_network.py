@@ -182,7 +182,7 @@ class PowerNetwork(object):
         connected_bus_ids = self.get_all_connected_bus_ids_by_id(bus_id)
         interconnection_admittance = []
         for connected_bus_id in connected_bus_ids:
-            Yij = self._get_admittance_value_from_bus_ids(bus_id, connected_bus_id)
+            Yij = self.get_admittance_value_from_bus_ids(bus_id, connected_bus_id)
             interconnection_admittance.append(Yij)
             
         if include_bus_ids is True:
@@ -302,7 +302,7 @@ class PowerNetwork(object):
         return self.G, self.B
 
 
-    def get_admittance_matrix(self):
+    def get_admittance_matrix(self, generate_on_exception=False):
         try:
             G = self.G
         except AttributeError:
@@ -313,7 +313,10 @@ class PowerNetwork(object):
             B = None
         
         if G is None or B is None:
-            raise PowerNetworkError('missing conductance or susceptance matrix for this power network')
+            if generate_on_exception is True:
+                G, B = self.save_admittance_matrix(G=G, B=B)
+            else:
+                raise PowerNetworkError('missing conductance or susceptance matrix for this power network')
 
         return G, B
         
@@ -433,7 +436,7 @@ class PowerNetwork(object):
         return index_of_bus_id
         
         
-    def _get_admittance_value_from_bus_ids(self, bus_id_i, bus_id_j):
+    def get_admittance_value_from_bus_ids(self, bus_id_i, bus_id_j):
         i = self._get_admittance_matrix_index_from_bus_id(bus_id_i)
         if bus_id_i != bus_id_j:
             j = self._get_admittance_matrix_index_from_bus_id(bus_id_j)
@@ -636,7 +639,7 @@ class PowerNetwork(object):
     def _static_var_helper(self, bus_id):
         bus = self.get_bus_by_id(bus_id)
 
-        self_admittance = self._get_admittance_value_from_bus_ids(bus_id, bus_id)
+        self_admittance = self.get_admittance_value_from_bus_ids(bus_id, bus_id)
 
         interconnection_admittance, connected_bus_ids = self._get_connected_bus_admittances_by_bus_id(bus_id, True)
 
@@ -682,7 +685,7 @@ class PowerNetwork(object):
         bus_i, bus_j = power_line.get_incident_buses()
         bus_i_id = bus_i.get_id()
         bus_j_id = bus_j.get_id()
-        Gij, Bij = self._get_admittance_value_from_bus_ids(bus_i_id, bus_j_id)
+        Gij, Bij = self.get_admittance_value_from_bus_ids(bus_i_id, bus_j_id)
         Vi, thetai = bus_i.get_current_voltage_polar() 
         Vj, thetaj = bus_j.get_current_voltage_polar()
         Pij = -Gij*Vi**2 + Vi*Vj*(Gij*cos(thetai - thetaj) - Bij*sin(thetai - thetaj))
