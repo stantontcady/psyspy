@@ -1,6 +1,8 @@
 from itertools import count
 from logging import debug, info, warning
 
+from numpy import zeros
+
 from microgrid_model.exceptions import ModelError
 from IPython import embed
 
@@ -31,6 +33,7 @@ class Model(object):
         self._get_bus_polar_voltage_method = None
         self._get_apparent_power_injected_by_network_method = None
         self._get_polar_voltage_of_connected_buses_method = None
+        self._setpoint_change_time = zeros(1)
 
 
     def __repr__(self):

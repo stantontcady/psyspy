@@ -48,12 +48,12 @@ class Perturbation(object):
         return False
 
 
-    def activate(self):
+    def activate(self, t):
         # do not need to try / except here because _activate was checked during initialization of instance
-        self._activate()
+        self._activate(t)
         self.active = True
 
 
-    def deactivate(self):
-        self._deactivate()
+    def deactivate(self, t):
+        self._deactivate(t)
         self.active = False

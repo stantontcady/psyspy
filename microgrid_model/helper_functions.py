@@ -1,6 +1,7 @@
 from logging import debug
 
-from numpy import empty
+from matplotlib.pylab import cm
+from numpy import empty, linspace
 
 
 def set_initial_conditions(obj, state, initial_value=None):
@@ -61,3 +62,12 @@ def impedance_admittance_wrangler(z=(), y=()):
     if len(z) != 0 and len(y) != 0:
         debug('Could not get admittance, defaulting to zero.')
     return (0, 0)
+
+
+def generate_n_colors(n, cmap='Accent'):
+    colorspace = linspace(0, 1, n)
+    cmap = getattr(cm, cmap)
+    for i in range(0, n):
+        rgba = [int(255*ele) for ele in cmap(colorspace[i])]
+        rgb = rgba[0:3]
+        yield "#{0:02x}{1:02x}{2:02x}".format(*rgb), colorspace[i]

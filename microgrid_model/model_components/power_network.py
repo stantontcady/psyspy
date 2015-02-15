@@ -4,6 +4,7 @@ from os.path import join as path_join
 from math import sin, cos
 
 from joblib import Parallel, delayed
+from networkx import Graph
 from numpy import append, array, zeros, frompyfunc, set_printoptions, inf, hstack, empty
 from numpy.linalg import norm, cond
 from scipy.sparse import lil_matrix
@@ -21,12 +22,13 @@ from IPython import embed
 class PowerNetwork(object):
     
     def __init__(self, buses=[], power_lines=[], solver_tolerance=0.00001):
+        self.graph_model = Graph()
+        self.buses = []
         for bus in buses:
             if isinstance(bus, Bus) is False:
                 raise TypeError('buses must be a list of instances of Bus type or a subclass thereof')
-        
-        self.buses = []        
-        self.buses.extend(buses)
+            else:
+                self.buses.append(bus)
 
         for power_line in power_lines:
             if isinstance(power_line, PowerLine) is False:

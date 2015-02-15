@@ -1,6 +1,6 @@
 from logging import debug
 
-from numpy import array
+from numpy import append, array
 
 from kuramoto_oscillator_model_perturbation import KuramotoOscillatorModelPerturbation
 
@@ -22,10 +22,12 @@ class KuramotoOscillatorModelNaturalFrequencyPerturbation(KuramotoOscillatorMode
         self._change_type = 'kuramoto_oscillator_model_natural_frequency_perturbation'
 
 
-    def _activate(self):
+    def _activate(self, t):
         # no need to try / except for the following method as only KuramotoOscillatorModel affected_models are allowed
         self.affected_model.change_dynamic_model_real_power_setpoint(self.new_natural_frequency)
+        self.affected_model._setpoint_change_time = append(self.affected_model._setpoint_change_time, t)
 
 
-    def _deactivate(self):
+    def _deactivate(self, t):
         self.affected_model.change_dynamic_model_real_power_setpoint(self.old_natural_frequency)
+        self.affected_model._setpoint_change_time = append(self.affected_model._setpoint_change_time, t)

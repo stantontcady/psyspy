@@ -76,11 +76,11 @@ class SimulationRoutine(object):
         
         if t >= perturbation.start_time and t < (perturbation.start_time + dt):
             if perturbation.active is False:
-                perturbation.activate()
+                perturbation.activate(t)
                 admittance_matrix_recompute_required = perturbation.admittance_matrix_recompute_required()
         elif perturbation.end_time is not None and t >= perturbation.end_time and t < (perturbation.end_time + dt):
             if perturbation.active is True:
-                perturbation.deactivate()
+                perturbation.deactivate(t)
                 admittance_matrix_recompute_required = perturbation.admittance_matrix_recompute_required()
 
         return admittance_matrix_recompute_required
