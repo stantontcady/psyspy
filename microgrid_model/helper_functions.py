@@ -64,9 +64,13 @@ def impedance_admittance_wrangler(z=(), y=()):
     return (0, 0)
 
 
-def generate_n_colors(n, cmap='Accent'):
-    colorspace = linspace(0, 1, n)
-    cmap = getattr(cm, cmap)
+def generate_n_colors(n, cmap):
+    if cmap.name == "Greys":
+        # limit bottom range of grey color map or it'll just be white and not visible
+        min_num = 0.25
+    else:
+        min_num = 0.0
+    colorspace = linspace(min_num, 1.0, n)
     for i in range(0, n):
         rgba = [int(255*ele) for ele in cmap(colorspace[i])]
         rgb = rgba[0:3]

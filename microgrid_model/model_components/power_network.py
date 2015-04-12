@@ -9,6 +9,10 @@ from numpy import append, array, zeros, frompyfunc, set_printoptions, inf, hstac
 from numpy.linalg import norm, cond
 from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import spsolve
+try:
+    from prettytable import PrettyTable
+except ImportError:
+    print_table_enabled = False
 
 from ..exceptions import PowerNetworkError
 from buses import Bus
@@ -77,6 +81,34 @@ class PowerNetwork(object):
                 pass
         
         return False
+
+
+    def get_buses(self):
+        """
+        A trivial function to return the bus list. Added to match similar functions for getting generator and load buses.
+        """
+        return self
+
+
+    def get_generator_buses(self):
+        """
+        Returns a list of buses that have generator models.
+        """
+        return [bus for bus in self if bus.has_generator_model() is True]
+
+
+    def get_load_buses(self):
+        """
+        Returns a list of buses that have load models.
+        """
+        return [bus for bus in self if bus.has_load_model() is True]
+        
+
+    def get_other_buses(self):
+        """
+        Returns a list of buses that have neither a generator nor a load model.
+        """
+        return list(set(self.get_buses()) - set(self.get_generators()) - set(self.get_loads()))
 
 
     def set_solver_tolerance(self, new_tolerance):
@@ -355,8 +387,36 @@ class PowerNetwork(object):
                 raise PowerNetworkError('missing conductance or susceptance matrix for this power network')
 
         return G, B
-        
-        
+
+
+    def print_admittance_matrix(self):
+        if 'print_table_enabled' in globals() and print_table_enabled is False:
+            print 'Cannot print admittance matrix, please install PrettyTable to enable this feature.'
+        else:
+            table_header = ["bus"]
+            for bus in self:
+                table_header.append(bus.get_id())
+            g_table = PrettyTable(table_header)
+            g_table.padding_width = 1
+            b_table = PrettyTable(table_header)
+            b_table.padding_width = 1
+            for bus_i in self:
+                bus_i_id = bus_i.get_id()
+                conductances = [bus_i_id]
+                susceptances = [bus_i_id]
+                for bus_j in self:
+                    Gij, Bij = self.get_admittance_value_from_bus_ids(bus_i_id, bus_j.get_id())
+                    conductances.append(round(Gij, 4))
+                    susceptances.append(round(Bij, 4))
+                g_table.add_row(conductances)
+                b_table.add_row(susceptances)
+            
+            print "Conductances"
+            print g_table
+            print "Susceptances"
+            print b_table
+
+
     def is_slack_bus(self, bus):
         return self.is_slack_bus_by_id(bus.get_id())
         

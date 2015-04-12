@@ -12,7 +12,7 @@ from ..models import Model
 class Bus(object):
     _bus_ids = count(0)
     
-    def __init__(self, model=None, V0=None, theta0=None, shunt_z=(), shunt_y=()):
+    def __init__(self, model=None, V0=None, theta0=None, shunt_z=(), shunt_y=(), name=None):
         if model is None:
             model = Model()
 
@@ -36,6 +36,8 @@ class Bus(object):
         self.model.set_update_bus_polar_voltage_method(self.update_voltage_polar)
         
         set_initial_conditions(self, 'w', 0)
+        
+        self.name = name
 
 
     def __repr__(self):
@@ -342,6 +344,10 @@ class Bus(object):
 
     def has_generator_model(self):
         return self.model.is_generator
+
+
+    def has_load_model(self):
+        return self.model.is_load
 
 
     def get_apparent_power_injection(self):

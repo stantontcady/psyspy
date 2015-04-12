@@ -6,10 +6,10 @@ from microgrid_model.exceptions import ModelError
 
 class DynamicModel(Model):
     
-    def __init__(self, voltage_magnitude_static=False, voltage_angle_static=False, is_generator=False):
+    def __init__(self, voltage_magnitude_static=False, voltage_angle_static=False, is_generator=False, is_load=False):
         
         Model.__init__(self, voltage_magnitude_static=voltage_magnitude_static, voltage_angle_static=voltage_angle_static,
-                             is_dynamic=True, is_generator=is_generator)
+                             is_dynamic=True, is_generator=is_generator, is_load=is_load)
         
         
     def prepare_for_initial_value_calculation(self):

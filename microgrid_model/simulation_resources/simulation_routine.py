@@ -26,6 +26,7 @@ class SimulationRoutine(object):
         self.time_step = time_step
         self.num_simulation_steps = int(float(simulation_time)/float(time_step)) + 1
         self.time_vector = empty(self.num_simulation_steps)
+        # self.time_vector = empty(0)
         
         self.numerical_method = RungeKutta45(time_step)
         # self.numerical_method = ForwardEuler(time_step)
@@ -111,7 +112,7 @@ class SimulationRoutine(object):
             
             
     def run_simulation(self):
-        self.current_time = 0
+        self.current_time = 0.
         n = self.network
         
         n.prepare_for_dynamic_simulation_initial_value_calculation()
@@ -124,10 +125,18 @@ class SimulationRoutine(object):
         self.initialize_controller()
         
         for bus in n.buses:
-            bus.w = append(bus.w, 0)
-            bus.w = append(bus.w, 0)
+            bus.w = append(bus.w, 0.)
+            bus.w = append(bus.w, 0.)
 
+        
+        # while self.current_time <= self.simulation_time:
         for k in range(0, self.num_simulation_steps):
+            # if self.current_time < 4.0:
+            #     self.time_step = 0.1
+            # else:
+            #     self.time_step = 0.001
+            
+            # self.time_vector = append(self.time_vector, self.current_time)
             self.time_vector[k] = self.current_time
             admittance_matrix_recompute_required = self.check_all_perturbations_active()
             
@@ -140,6 +149,7 @@ class SimulationRoutine(object):
             n.update_algebraic_states(admittance_matrix_recompute_required=admittance_matrix_recompute_required)
             
             if k > 1:
+            # if self.current_time > 0:
                 for bus in n.buses:
                     theta_k = bus.theta[-1]
                     theta_km1 = bus.theta[-2]

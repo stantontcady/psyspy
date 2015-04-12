@@ -14,7 +14,9 @@ class StructurePreservingSynchronousGeneratorModel(DynamicModel):
     
     def __init__(self, parameters, initial_setpoint):
                  
-        DynamicModel.__init__(self, voltage_magnitude_static=False, voltage_angle_static=False, is_generator=True)
+        DynamicModel.__init__(self,
+							  voltage_magnitude_static=False, voltage_angle_static=False,
+							  is_generator=True, is_load=False)
                  
         self.model_type = {
             'simple_name':'structure_preserving',

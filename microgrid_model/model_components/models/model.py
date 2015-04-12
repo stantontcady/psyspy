@@ -9,7 +9,8 @@ from IPython import embed
 class Model(object):
     _model_ids = count(0)
     
-    def __init__(self, voltage_magnitude_static=False, voltage_angle_static=False, is_dynamic=False, is_generator=False):
+    def __init__(self, voltage_magnitude_static=False, voltage_angle_static=False,
+					   is_dynamic=False, is_generator=False, is_load=False):
         self._model_id = self._model_ids.next() + 1
         
         def check_boolean_parameter(parameter):
@@ -29,6 +30,9 @@ class Model(object):
 
         if check_boolean_parameter(is_generator) is True:
             self.is_generator = is_generator
+		
+        if check_boolean_parameter(is_load) is True:
+            self.is_load = is_load
             
         self._get_bus_polar_voltage_method = None
         self._get_apparent_power_injected_by_network_method = None
@@ -122,7 +126,7 @@ class Model(object):
             if hasattr(method, '__call__'):
                 return method
 
-        raise False
+        return False
 
 
     def get_apparent_power_injection(self):

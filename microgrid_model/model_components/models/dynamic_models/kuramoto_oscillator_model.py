@@ -12,9 +12,10 @@ from microgrid_model.helper_functions import set_initial_conditions, set_paramet
 
 class KuramotoOscillatorModel(DynamicModel):
     
-    def __init__(self, parameters, initial_setpoint, is_generator=True):
-                 
-        DynamicModel.__init__(self, voltage_magnitude_static=True, voltage_angle_static=False, is_generator=is_generator)
+    def __init__(self, parameters, initial_setpoint, is_generator=True, is_load=False):
+
+        DynamicModel.__init__(self, voltage_magnitude_static=True, voltage_angle_static=False,
+									is_generator=is_generator, is_load=is_load)
                  
         self.model_type = {
             'simple_name':'kuramoto_oscillator',
@@ -23,7 +24,9 @@ class KuramotoOscillatorModel(DynamicModel):
 
         # TO DO: get reasonable defaults for machine params
         self.parameter_defaults = {
-            'D' : 0.1
+            'D' : 0.1,
+			'u_min' : 0.,
+			'u_max' : 1.
         }
         
         for parameter, default_value in self.parameter_defaults.iteritems():
@@ -60,6 +63,10 @@ class KuramotoOscillatorModel(DynamicModel):
             object_info.extend(['%s%s' % (''.rjust(2*indent_level_increment), parameter) for parameter in parameters])
             
         return object_info
+
+
+    def get_limits(self):
+        return self.u_min, self.u_max
 
 
     def _get_damping_coefficient(self):
