@@ -29,10 +29,7 @@ class PowerNetwork(object):
         self.graph_model = Graph()
         self.buses = []
         for bus in buses:
-            if isinstance(bus, Bus) is False:
-                raise TypeError('buses must be a list of instances of Bus type or a subclass thereof')
-            else:
-                self.buses.append(bus)
+            self.add_bus(bus)
 
         for power_line in power_lines:
             if isinstance(power_line, PowerLine) is False:
@@ -43,12 +40,6 @@ class PowerNetwork(object):
 
         set_printoptions(linewidth=175)
         self.solver = NewtonRhapson(tolerance=solver_tolerance)
-        
-        for bus in self.buses:
-            bus.set_get_apparent_power_injected_from_network_method(self.compute_apparent_power_injected_from_network)
-            bus.set_get_connected_bus_admittance_from_network_method(self._get_connected_bus_admittances_by_bus_id)
-            bus.set_get_connected_bus_polar_voltage_from_network_method(self._get_connected_bus_polar_voltage_by_bus_id)
-            
 
         
     def __repr__(self):
@@ -123,9 +114,24 @@ class PowerNetwork(object):
         return len(self.power_lines)
 
 
-    def add_bus(self, bus):
-        if self.bus_in_network(bus) is False:
-            self.buses.append(bus)
+    def add_bus(self, bus, is_slack_bus=False):
+        if isinstance(bus, Bus) is False:
+            raise TypeError('buses must be a list of instances of Bus type or a subclass thereof')
+        else:
+            if self.bus_in_network(bus) is False:
+                bus.set_get_apparent_power_injected_from_network_method(self.compute_apparent_power_injected_from_network)
+                bus.set_get_connected_bus_admittance_from_network_method(self._get_connected_bus_admittances_by_bus_id)
+                bus.set_get_connected_bus_polar_voltage_from_network_method(self._get_connected_bus_polar_voltage_by_bus_id)
+                self.buses.append(bus)
+                # need to regenerate this mapping each time a new bus is added
+                self.generate_buses_index_bus_id_mapping()
+                if is_slack_bus is not False:
+                    current_slack_bus = self.get_slack_bus()
+                    if current_slack_bus is not None:
+                        debug("changing slack bus from bus with id %i" % current_slack_bus)
+                    self.set_slack_bus(bus)
+                    
+            return bus.get_id()
 
 
     def add_power_line(self, power_line):
@@ -133,8 +139,8 @@ class PowerNetwork(object):
 
 
     def connect_buses(self, bus_a, bus_b, z=(), y=()):
-        self.add_bus(bus_a)
-        self.add_bus(bus_b)
+        _ = self.add_bus(bus_a)
+        _ = self.add_bus(bus_b)
         
         power_line = PowerLine(bus_a, bus_b, z, y)
         self.add_power_line(power_line)
@@ -332,7 +338,6 @@ class PowerNetwork(object):
             _ = self.save_admittance_matrix_index_bus_id_mapping(optimal_ordering=optimal_ordering)
 
         admittance_matrix_index_bus_id_mapping = self.get_admittance_matrix_index_bus_id_mapping()
-        
 
         for i, bus_id_i in enumerate(admittance_matrix_index_bus_id_mapping):
             bus_i = self.get_bus_by_id(bus_id_i)

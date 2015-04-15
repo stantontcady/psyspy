@@ -159,6 +159,13 @@ class Bus(object):
         self.model.change_dynamic_model_real_power_setpoint(new_setpoint)
 
 
+    def add_to_shunt_impedance(self, shunt_z=(), shunt_y=()):
+        shunt_y_to_add = impedance_admittance_wrangler(shunt_z, shunt_y)
+        previous_shunt_y = self.shunt_y
+        self.shunt_y = (shunt_y_to_add[0]+previous_shunt_y[0], shunt_y_to_add[1]+previous_shunt_y[1])
+        return self.shunt_y
+
+
     def set_initial_voltage_polar(self, Vpolar=()):
         if Vpolar == ():
             V0 = None

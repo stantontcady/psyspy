@@ -59,6 +59,7 @@ class PowerLine(object):
 
         return object_info
 
+
     def get_id(self):
         return self._power_line_id
         
