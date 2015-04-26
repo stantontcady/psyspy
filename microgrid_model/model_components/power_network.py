@@ -170,8 +170,16 @@ class PowerNetwork(object):
             return self.buses[index_of_bus]
         except ValueError:
             return None
+
+
+    def get_bus_by_name(self, bus_name):
+        for bus in self:
+            if bus.name is not None and bus.name == bus_name:
+                return bus
             
-        
+        return None
+
+    
     def get_bus_type_by_id(self, bus_id):
         bus = self.get_bus_by_id(bus_id)
         if bus is None:
