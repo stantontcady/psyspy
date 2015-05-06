@@ -1,8 +1,9 @@
 from logging import debug, info, warning
 from math import ceil, pi
 
-from numpy import empty, append
+from numpy import empty, append, array, zeros
 
+# from distconarch import Controller
 from numerical_methods import RungeKutta45, ForwardEuler
 from perturbations import Perturbation
 
@@ -16,10 +17,12 @@ class SimulationRoutine(object):
                  simulation_time,
                  controller=None,
                  perturbations=None,
+                 order_param_alg=None,
                  time_step=0.001,
                  power_flow_tolerance=0.0001):
         
         self.network = power_network
+        self.order_param_alg = order_param_alg
 
         self.network.set_solver_tolerance(power_flow_tolerance)
         self.simulation_time = simulation_time
@@ -32,7 +35,7 @@ class SimulationRoutine(object):
         # self.numerical_method = ForwardEuler(time_step)
         
         # if controller is not None and isinstance(controller, Controller) is False:
-            # raise TypeError('controller must be an instance of the Controller class or a subclass thereof')
+        #     raise TypeError('controller must be an instance of the Controller class or a subclass thereof')
         # else:
         self.controller = controller
         
@@ -127,10 +130,16 @@ class SimulationRoutine(object):
         for bus in n.buses:
             bus.w = append(bus.w, 0.)
             bus.w = append(bus.w, 0.)
-
+        # embed()
+        if self.order_param_alg is not None:
+            self.order_param = empty(1)
         
         # while self.current_time <= self.simulation_time:
         for k in range(0, self.num_simulation_steps):
+            if self.order_param_alg is not None:
+                order_param, _, _ = self.order_param_alg.compute_order_parameter()
+                # print order_param.shape
+                self.order_param = append(self.order_param, order_param[0])
             # if self.current_time < 4.0:
             #     self.time_step = 0.1
             # else:
@@ -147,6 +156,9 @@ class SimulationRoutine(object):
             n.update_dynamic_states(numerical_integration_method=self.numerical_method.get_updated_states)
             
             n.update_algebraic_states(admittance_matrix_recompute_required=admittance_matrix_recompute_required)
+            
+            # if order_param is not False:
+            #     self.order_param = append(self.order_param, n.compute_order_parameter())
             
             if k > 1:
             # if self.current_time > 0:

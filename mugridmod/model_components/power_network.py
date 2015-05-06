@@ -1,7 +1,7 @@
 from itertools import count
 from operator import itemgetter
 from os.path import join as path_join
-from math import sin, cos
+from math import cos, sin
 
 from joblib import Parallel, delayed
 from networkx import Graph
@@ -16,6 +16,7 @@ except ImportError:
 
 from ..exceptions import PowerNetworkError
 from buses import Bus
+from models import KuramotoOscillatorModel
 from power_line import PowerLine
 from power_network_helper_functions import fp_fq_helper, connected_bus_helper, jacobian_hij_helper, jacobian_nij_helper, \
                                            jacobian_kij_helper, jacobian_lij_helper, jacobian_diagonal_helper, \
@@ -26,6 +27,7 @@ from IPython import embed
 class PowerNetwork(object):
     
     def __init__(self, buses=[], power_lines=[], solver_tolerance=0.00001):
+        self.homogenous_kuramoto = True
         self.graph_model = Graph()
         self.buses = []
         for bus in buses:
@@ -123,6 +125,8 @@ class PowerNetwork(object):
                 bus.set_get_connected_bus_admittance_from_network_method(self._get_connected_bus_admittances_by_bus_id)
                 bus.set_get_connected_bus_polar_voltage_from_network_method(self._get_connected_bus_polar_voltage_by_bus_id)
                 self.buses.append(bus)
+                if isinstance(bus.model, KuramotoOscillatorModel) is False:
+                    self.homogenous_kuramoto = False
                 # need to regenerate this mapping each time a new bus is added
                 self.generate_buses_index_bus_id_mapping()
                 if is_slack_bus is not False:
@@ -930,4 +934,5 @@ class PowerNetwork(object):
     def update_algebraic_states(self, admittance_matrix_recompute_required=False):
         if admittance_matrix_recompute_required is True:
             _, _ = self.save_admittance_matrix()
-        # _ = n.solve_power_flow(force_static_var_recompute=force_static_var_recompute, append=append)
+        if self.homogenous_kuramoto is False:
+            _ = n.solve_power_flow(force_static_var_recompute=force_static_var_recompute, append=append)
