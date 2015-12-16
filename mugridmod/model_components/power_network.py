@@ -27,7 +27,6 @@ from IPython import embed
 class PowerNetwork(object):
     
     def __init__(self, buses=[], power_lines=[], solver_tolerance=0.00001):
-        self.homogenous_kuramoto = True
         self.graph_model = Graph()
         self.buses = []
         for bus in buses:
@@ -101,7 +100,7 @@ class PowerNetwork(object):
         """
         Returns a list of buses that have neither a generator nor a load model.
         """
-        return list(set(self.get_buses()) - set(self.get_generators()) - set(self.get_loads()))
+        return list(set(self.get_buses()) - set(self.get_generator_buses()) - set(self.get_load_buses()))
 
 
     def set_solver_tolerance(self, new_tolerance):
@@ -116,6 +115,14 @@ class PowerNetwork(object):
         return len(self.power_lines)
 
 
+    def is_homogenous_kuramoto(self):
+        for bus in self:
+            if isinstance(bus.model, KuramotoOscillatorModel) is False:
+                return False
+        
+        return True
+
+
     def add_bus(self, bus, is_slack_bus=False):
         if isinstance(bus, Bus) is False:
             raise TypeError('buses must be a list of instances of Bus type or a subclass thereof')
@@ -125,8 +132,6 @@ class PowerNetwork(object):
                 bus.set_get_connected_bus_admittance_from_network_method(self._get_connected_bus_admittances_by_bus_id)
                 bus.set_get_connected_bus_polar_voltage_from_network_method(self._get_connected_bus_polar_voltage_by_bus_id)
                 self.buses.append(bus)
-                if isinstance(bus.model, KuramotoOscillatorModel) is False:
-                    self.homogenous_kuramoto = False
                 # need to regenerate this mapping each time a new bus is added
                 self.generate_buses_index_bus_id_mapping()
                 if is_slack_bus is not False:
@@ -934,5 +939,5 @@ class PowerNetwork(object):
     def update_algebraic_states(self, admittance_matrix_recompute_required=False):
         if admittance_matrix_recompute_required is True:
             _, _ = self.save_admittance_matrix()
-        if self.homogenous_kuramoto is False:
+        if self.is_homogenous_kuramoto() is False:
             _ = n.solve_power_flow(force_static_var_recompute=force_static_var_recompute, append=append)

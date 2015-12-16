@@ -4,8 +4,8 @@ from math import pi
 
 from numpy import append, nan
 
-from microgrid_model.exceptions import BusError, ModelError
-from microgrid_model import impedance_admittance_wrangler, set_initial_conditions
+from ...exceptions import BusError, ModelError
+from ...helper_functions import impedance_admittance_wrangler, set_initial_conditions
 from ..models import Model
 
 

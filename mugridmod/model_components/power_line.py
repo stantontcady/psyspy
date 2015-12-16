@@ -2,8 +2,8 @@ from itertools import count
 
 from numpy import append
 
-from microgrid_model.helper_functions import impedance_admittance_wrangler, set_initial_conditions
-from microgrid_model.exceptions import PowerLineError
+from ..helper_functions import impedance_admittance_wrangler, set_initial_conditions
+from ..exceptions import PowerLineError
 
 
 class PowerLine(object):

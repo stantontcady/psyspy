@@ -1,7 +1,7 @@
 from logging import debug
 
 from ..model import Model
-from microgrid_model.exceptions import ModelError
+from ....exceptions import ModelError
 
 
 class DynamicModel(Model):

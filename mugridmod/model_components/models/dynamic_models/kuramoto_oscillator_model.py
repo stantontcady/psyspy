@@ -6,8 +6,8 @@ from operator import itemgetter
 from numpy import append, array, empty, nan, nditer, zeros, hstack
 
 from dynamic_model import DynamicModel
-from microgrid_model.exceptions import ModelError
-from microgrid_model.helper_functions import set_initial_conditions, set_parameter_value
+from ....exceptions import ModelError
+from ....helper_functions import set_initial_conditions, set_parameter_value
 
 
 class KuramotoOscillatorModel(DynamicModel):

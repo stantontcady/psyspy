@@ -4,7 +4,7 @@ from numpy import array, asarray, matrix, genfromtxt
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 from scipy.sparse import lil_matrix
 
-from microgrid_model import Bus, PowerLine, PowerNetwork, PQBus, PVBus
+from mugridmod import Bus, PowerLine, PowerNetwork, PQBus, PVBus
 # from ..microgrid_model import NodeError, PowerLineError, PowerNetworkError
 
 
@@ -138,10 +138,10 @@ class TestPowerNetwork(unittest.TestCase):
 
     
     def test_generate_admittance_matrix(self):
-        expected_G = genfromtxt('tests/resources/wecc9_conductance_matrix.csv', delimiter=',')
-        expected_B = genfromtxt('tests/resources/wecc9_susceptance_matrix.csv', delimiter=',')
-        expected_G_optimal = genfromtxt('tests/resources/wecc9_conductance_matrix_optimal_ordering.csv', delimiter=',')
-        expected_B_optimal = genfromtxt('tests/resources/wecc9_susceptance_matrix_optimal_ordering.csv', delimiter=',')
+        expected_G = genfromtxt('resources/wecc9_conductance_matrix.csv', delimiter=',')
+        expected_B = genfromtxt('resources/wecc9_susceptance_matrix.csv', delimiter=',')
+        expected_G_optimal = genfromtxt('resources/wecc9_conductance_matrix_optimal_ordering.csv', delimiter=',')
+        expected_B_optimal = genfromtxt('resources/wecc9_susceptance_matrix_optimal_ordering.csv', delimiter=',')
 
         network = create_wecc_9_bus_network()
 
@@ -163,8 +163,8 @@ class TestPowerNetwork(unittest.TestCase):
 
         
     def test_generate_jacobian_matrix(self):
-        expected_J = genfromtxt('tests/resources/wecc9_jacobian_matrix.csv', delimiter=',')
-        expected_J_optimal = genfromtxt('tests/resources/wecc9_jacobian_matrix_optimal_ordering.csv', delimiter=',')
+        expected_J = genfromtxt('resources/wecc9_jacobian_matrix.csv', delimiter=',')
+        expected_J_optimal = genfromtxt('resources/wecc9_jacobian_matrix_optimal_ordering.csv', delimiter=',')
 
         network = create_wecc_9_bus_network()
 
@@ -198,8 +198,8 @@ class TestPowerNetwork(unittest.TestCase):
         network0 = create_wecc_9_bus_network()
         network1 = create_wecc_9_bus_network_with_pq_buses()
 
-        expected_final_states = genfromtxt('tests/resources/wecc9_final_states.csv', delimiter=',')
-        expected_final_states_optimal_ordering = genfromtxt('tests/resources/wecc9_final_states_optimal_ordering.csv',
+        expected_final_states = genfromtxt('resources/wecc9_final_states.csv', delimiter=',')
+        expected_final_states_optimal_ordering = genfromtxt('resources/wecc9_final_states_optimal_ordering.csv',
                                                             delimiter=',')
         
         do_test(network0)

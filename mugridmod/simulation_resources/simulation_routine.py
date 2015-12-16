@@ -130,10 +130,10 @@ class SimulationRoutine(object):
         for bus in n.buses:
             bus.w = append(bus.w, 0.)
             bus.w = append(bus.w, 0.)
-        # embed()
+
         if self.order_param_alg is not None:
             self.order_param = empty(1)
-        
+
         # while self.current_time <= self.simulation_time:
         for k in range(0, self.num_simulation_steps):
             if self.order_param_alg is not None:

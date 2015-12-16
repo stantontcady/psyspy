@@ -3,7 +3,7 @@ from logging import debug, info, warning
 
 from numpy import zeros
 
-from microgrid_model.exceptions import ModelError
+from ...exceptions import ModelError
 from IPython import embed
 
 class Model(object):

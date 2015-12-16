@@ -1,6 +1,6 @@
 
 from ..perturbation import Perturbation
-from microgrid_model.model_components.models.dynamic_models import KuramotoOscillatorModel
+from ....model_components.models.dynamic_models import KuramotoOscillatorModel
 
 class KuramotoOscillatorModelPerturbation(Perturbation):
     

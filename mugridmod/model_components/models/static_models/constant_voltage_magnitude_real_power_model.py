@@ -1,5 +1,5 @@
 
-from microgrid_model.helper_functions import set_initial_conditions
+from ....helper_functions import set_initial_conditions
 from static_model import StaticModel
 
 
