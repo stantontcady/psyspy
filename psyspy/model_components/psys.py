@@ -24,7 +24,7 @@ from power_network_helper_functions import fp_fq_helper, connected_bus_helper, j
 from ..simulation_resources import NewtonRhapson
 from IPython import embed
 
-class PowerNetwork(object):
+class PSys(object):
     
     def __init__(self, buses=[], power_lines=[], solver_tolerance=0.00001):
         self.graph_model = Graph()

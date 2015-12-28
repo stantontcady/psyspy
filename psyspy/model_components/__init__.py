@@ -1,5 +1,5 @@
-from power_line import PowerLine
-from power_network import PowerNetwork
+from branch import Branch
+from psys import PSys
 
 from models import Model
 from models import KuramotoOscillatorModel, KuramotoOscillatorGeneratorModel, KuramotoOscillatorLoadModel

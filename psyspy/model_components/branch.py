@@ -6,7 +6,7 @@ from ..helper_functions import impedance_admittance_wrangler, set_initial_condit
 from ..exceptions import PowerLineError
 
 
-class PowerLine(object):
+class Branch(object):
     _power_line_ids = count(0)
     
     def __init__(self, bus_a=None, bus_b=None, z=(), y=()):
